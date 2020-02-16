@@ -386,7 +386,6 @@ volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
 
 // wheel speed sensor
 volatile uint16_t ui16_wheel_speed_sensor_ticks = 0;
-volatile uint32_t ui32_wheel_speed_sensor_ticks_total = 0;
 
 
 void read_battery_voltage(void);
@@ -941,7 +940,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         {
           ui16_wheel_speed_sensor_ticks = ui16_wheel_speed_sensor_ticks_counter;
           ui16_wheel_speed_sensor_ticks_counter = 0;
-          ++ui32_wheel_speed_sensor_ticks_total;
         }
       }
     }

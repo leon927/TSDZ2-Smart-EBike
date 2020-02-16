@@ -60,7 +60,6 @@ static uint8_t ui8_pedal_cadence_RPM = 0;
 // torque sensor
 volatile uint16_t ui16_adc_pedal_torque = 0;
 static uint16_t   ui16_adc_pedal_torque_delta = 0;
-static uint16_t   ui16_human_power_x10 = 0;
 static uint16_t   ui16_pedal_torque_x100 = 0;
 
 
@@ -108,25 +107,9 @@ static const uint8_t ui8_eMTB_power_function_255[eMTB_POWER_FUNCTION_ARRAY_SIZE]
 static uint8_t ui8_cruise_PID_initialize = 1;
 
 
-// boost
-uint8_t   ui8_startup_boost_enable = 0;
-uint8_t   ui8_startup_boost_fade_enable = 0;
-uint8_t   ui8_m_startup_boost_state_machine = 0;
-uint8_t   ui8_startup_boost_no_torque = 0;
-uint8_t   ui8_startup_boost_timer = 0;
-uint8_t   ui8_startup_boost_fade_steps = 0;
-uint16_t  ui16_startup_boost_fade_variable_x256;
-uint16_t  ui16_startup_boost_fade_variable_step_amount_x256;
-static void     boost_run_statemachine (void);
-static uint8_t  boost(uint8_t ui8_max_current_boost_state);
-static void     apply_boost_fade_out();
-uint8_t ui8_boost_enabled_and_applied = 0;
-static void apply_boost();
-
-
 // UART
 #define UART_NUMBER_DATA_BYTES_TO_RECEIVE   7   // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
-#define UART_NUMBER_DATA_BYTES_TO_SEND      24  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_SEND      21  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 
 volatile uint8_t ui8_received_package_flag = 0;
 volatile uint8_t ui8_rx_buffer[UART_NUMBER_DATA_BYTES_TO_RECEIVE + 3];
@@ -926,22 +909,6 @@ static void get_pedal_torque(void)
   
   // calculate torque on pedals
   ui16_pedal_torque_x100 = ui16_adc_pedal_torque_delta * m_configuration_variables.ui8_pedal_torque_per_10_bit_ADC_step_x100;
-
-  // calculate human power
-  ui16_human_power_x10 = ((uint32_t) ui16_pedal_torque_x100 * ui8_pedal_cadence_RPM) / 96; // see note below
-  
-  /*------------------------------------------------------------------------
-
-    NOTE: regarding the human power calculation
-    
-    (1) Formula: power = torque * rotations per second * 2 * pi
-    (2) Formula: power = torque * rotations per minute * 2 * pi / 60
-    (3) Formula: power = torque * rotations per minute * 0.1047
-    (4) Formula: power = torque * 100 * rotations per minute * 0.001047
-    (5) Formula: power = torque * 100 * rotations per minute / 955
-    (6) Formula: power * 10  =  torque * 100 * rotations per minute / 96
-    
-  ------------------------------------------------------------------------*/
 }
 
 
@@ -1596,24 +1563,15 @@ static void uart_send_package(void)
   // motor temperature
   ui8_tx_buffer[17] = ui16_motor_temperature_filtered_x10 / 10;
   
-  // wheel_speed_sensor_tick_counter
-  ui8_tx_buffer[18] = (uint8_t) (ui32_wheel_speed_sensor_ticks_total & 0xff);
-  ui8_tx_buffer[19] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 8) & 0xff);
-  ui8_tx_buffer[20] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 16) & 0xff);
-
   // pedal torque x100
   ui16_temp = ui16_pedal_torque_x100;
-  ui8_tx_buffer[21] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
-
-  // human power x10
-  //ui8_tx_buffer[23] = (uint8_t) (ui16_human_power_x10 & 0xff);
-  //ui8_tx_buffer[24] = (uint8_t) (ui16_human_power_x10 >> 8);
+  ui8_tx_buffer[18] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[19] = (uint8_t) (ui16_temp >> 8);
   
   // cadence sensor pulse high percentage
   ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
-  ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
+  ui8_tx_buffer[20] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[21] = (uint8_t) (ui16_temp >> 8);
 
   // prepare crc of the package
   ui16_crc_tx = 0xffff;
@@ -1632,177 +1590,3 @@ static void uart_send_package(void)
     putchar (ui8_tx_buffer[ui8_i]);
   }
 }
-
-
-
-
-
-/* static void apply_boost()
-{
-  ui8_boost_enabled_and_applied = 0;
-  uint8_t ui8_adc_max_battery_current_boost_state = 0;
-
-  // 1.6 = 1 / 0.625 (each adc step for current)
-  // 25 * 1.6 = 40
-  // 40 * 4 = 160
-  if(m_configuration_variables.ui8_startup_motor_power_boost_assist_level > 0)
-  {
-    uint32_t ui32_temp;
-    ui32_temp = (uint32_t) ui16_pedal_torque_x100 * (uint32_t) m_configuration_variables.ui8_startup_motor_power_boost_assist_level;
-    ui32_temp /= 100;
-
-    // 1.6 = 1 / 0.625 (each adc step for current)
-    // 1.6 * 8 = ~13
-    ui32_temp = (ui32_temp * 13000) / ((uint32_t) ui16_battery_voltage_filtered_x1000);
-    ui8_adc_max_battery_current_boost_state = ui32_temp >> 3;
-    ui8_limit_max(&ui8_adc_max_battery_current_boost_state, 255);
-  }
-  
-  // apply boost and boost fade out
-  if(m_configuration_variables.ui8_startup_motor_power_boost_feature_enabled)
-  {
-    boost_run_statemachine();
-    ui8_boost_enabled_and_applied = boost(ui8_adc_max_battery_current_boost_state);
-    apply_boost_fade_out();
-  }
-}
-
-
-static uint8_t boost(uint8_t ui8_max_current_boost_state)
-{
-  uint8_t ui8_boost_enable = ui8_startup_boost_enable && ui8_riding_mode_parameter && ui8_pedal_cadence_RPM > 0 ? 1 : 0;
-
-  if (ui8_boost_enable)
-  {
-    ui8_adc_battery_current_target = ui8_max_current_boost_state;
-  }
-
-  return ui8_boost_enable;
-}
-
-
-static void apply_boost_fade_out()
-{
-  if (ui8_startup_boost_fade_enable)
-  {
-    // here we try to converge to the regular value, ramping down or up step by step
-    uint16_t ui16_adc_battery_target_current_x256 = ((uint16_t) ui8_adc_battery_current_target) << 8;
-    if (ui16_startup_boost_fade_variable_x256 > ui16_adc_battery_target_current_x256)
-    {
-      ui16_startup_boost_fade_variable_x256 -= ui16_startup_boost_fade_variable_step_amount_x256;
-    }
-    else if (ui16_startup_boost_fade_variable_x256 < ui16_adc_battery_target_current_x256)
-    {
-      ui16_startup_boost_fade_variable_x256 += ui16_startup_boost_fade_variable_step_amount_x256;
-    }
-
-    ui8_adc_battery_current_target = (uint8_t) (ui16_startup_boost_fade_variable_x256 >> 8);
-  }
-}
-
-static void boost_run_statemachine(void)
-{
-  #define BOOST_STATE_BOOST_DISABLED        0
-  #define BOOST_STATE_BOOST                 1
-  #define BOOST_STATE_FADE                  2
-  #define BOOST_STATE_BOOST_WAIT_TO_RESTART 3
-  
-  uint8_t ui8_torque_sensor = ui16_adc_pedal_torque_delta;
-
-  if(m_configuration_variables.ui8_startup_motor_power_boost_time > 0)
-  {
-    switch(ui8_m_startup_boost_state_machine)
-    {
-      // ebike is stopped, wait for throttle signal to startup boost
-      case BOOST_STATE_BOOST_DISABLED:
-      
-        if (ui8_torque_sensor > 12 && (ui8_brakes_engaged == 0))
-        {
-          ui8_startup_boost_enable = 1;
-          ui8_startup_boost_timer = m_configuration_variables.ui8_startup_motor_power_boost_time;
-          ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST;
-        }
-        
-      break;
-
-      case BOOST_STATE_BOOST:
-      
-        // braking means reseting
-        if(ui8_brakes_engaged)
-        {
-          ui8_startup_boost_enable = 0;
-          ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_DISABLED;
-        }
-
-        // end boost if
-        if(ui8_torque_sensor < 12)
-        {
-          ui8_startup_boost_enable = 0;
-          ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_WAIT_TO_RESTART;
-        }
-
-        // decrement timer
-        if(ui8_startup_boost_timer > 0) { ui8_startup_boost_timer--; }
-
-        // end boost and start fade if
-        if(ui8_startup_boost_timer == 0)
-        {
-          ui8_m_startup_boost_state_machine = BOOST_STATE_FADE;
-          ui8_startup_boost_enable = 0;
-
-          // setup variables for fade
-          ui8_startup_boost_fade_steps = m_configuration_variables.ui8_startup_motor_power_boost_fade_time;
-          ui16_startup_boost_fade_variable_x256 = ((uint16_t) ui8_adc_battery_current_target << 8);
-          ui16_startup_boost_fade_variable_step_amount_x256 = (ui16_startup_boost_fade_variable_x256 / ((uint16_t) ui8_startup_boost_fade_steps));
-          ui8_startup_boost_fade_enable = 1;
-        }
-      break;
-
-      case BOOST_STATE_FADE:
-        // braking means reseting
-        if(ui8_brakes_engaged)
-        {
-          ui8_startup_boost_fade_enable = 0;
-          ui8_startup_boost_fade_steps = 0;
-          ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_DISABLED;
-        }
-
-        if(ui8_startup_boost_fade_steps > 0) { ui8_startup_boost_fade_steps--; }
-
-        // disable fade if
-        if(ui8_torque_sensor < 12 ||
-            ui8_startup_boost_fade_steps == 0)
-        {
-          ui8_startup_boost_fade_enable = 0;
-          ui8_startup_boost_fade_steps = 0;
-          ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_WAIT_TO_RESTART;
-        }
-      break;
-
-      // restart when user is not pressing the pedals AND/OR wheel speed = 0
-      case BOOST_STATE_BOOST_WAIT_TO_RESTART:
-        // wheel speed must be 0 as also torque sensor
-        if((m_configuration_variables.ui8_startup_motor_power_boost_state & 1) == 0)
-        {
-          if(ui16_wheel_speed_x10 == 0 &&
-              ui8_torque_sensor < 12)
-          {
-            ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_DISABLED;
-          }
-        }
-        // torque sensor must be 0
-        if((m_configuration_variables.ui8_startup_motor_power_boost_state & 1) > 0)
-        {
-          if(ui8_torque_sensor < 12 ||
-              ui8_pedal_cadence_RPM == 0)
-          {
-            ui8_m_startup_boost_state_machine = BOOST_STATE_BOOST_DISABLED;
-          }
-        }
-      break;
-
-      default:
-      break;
-    }
-  }
-} */
