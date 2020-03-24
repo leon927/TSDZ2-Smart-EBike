@@ -808,7 +808,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
               ui16_cadence_sensor_ticks = ui16_cadence_sensor_ticks_counter;
 			  
 			  // for overrun problem
-			  ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 4));
+			  ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 3));
 
               // reset ticks counter
               ui16_cadence_sensor_ticks_counter = 0;
@@ -856,7 +856,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             ui8_cadence_sensor_pulse_state = ui8_cadence_sensor_pin_1_state;
 			
 			// for overrun problem
-			ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 2));
+			ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 1));
 
             // reset ticks counter
             ui16_cadence_sensor_ticks_counter = 0;
