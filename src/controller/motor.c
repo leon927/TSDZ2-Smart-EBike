@@ -383,6 +383,10 @@ volatile uint16_t ui16_cadence_sensor_ticks_counter_min_high = CADENCE_SENSOR_TI
 volatile uint16_t ui16_cadence_sensor_ticks_counter_min_low = CADENCE_SENSOR_TICKS_COUNTER_MIN;
 volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
 
+// for overrun problem 
+volatile uint8_t ui8_cadence_sensor_stop_flag = 0;
+volatile uint16_t ui16_cadence_sensor_ticks_stop = 0;
+volatile uint8_t ui8_fix_overrun_enabled = 1;
 
 // wheel speed sensor
 volatile uint16_t ui16_wheel_speed_sensor_ticks = 0;
@@ -630,16 +634,22 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   static uint16_t ui16_counter_duty_cycle_ramp_down;
   
   // check if to decrease, increase or maintain duty cycle
+  // changed for overrun problem
   if ((ui8_g_duty_cycle > ui8_controller_duty_cycle_target) ||
       (ui8_controller_adc_battery_current > ui8_controller_adc_battery_current_target) ||
       (ui8_adc_motor_phase_current > ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX) ||
       (ui16_motor_speed_erps > ui16_max_motor_speed_erps) ||
       (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off) ||
-      (ui8_brake_state))
+      (ui8_brake_state) || 
+	  (ui8_cadence_sensor_stop_flag))
   {
     // reset duty cycle ramp up counter (filter)
     ui16_counter_duty_cycle_ramp_up = 0;
     
+    // for overrun problem
+    if((ui8_cadence_sensor_stop_flag) || (ui8_brake_state))
+      ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN;
+	
     // ramp down duty cycle
     if (++ui16_counter_duty_cycle_ramp_down > ui16_controller_duty_cycle_ramp_down_inverse_step)
     {
@@ -796,7 +806,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             {
               // set the cadence sensor ticks between the two transitions
               ui16_cadence_sensor_ticks = ui16_cadence_sensor_ticks_counter;
-              
+			  
+              // for overrun problem
+              ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 3));
+
               // reset ticks counter
               ui16_cadence_sensor_ticks_counter = 0;
               
@@ -841,7 +854,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             
             // set the pulse state
             ui8_cadence_sensor_pulse_state = ui8_cadence_sensor_pin_1_state;
-            
+			
+            // for overrun problem
+            ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 1));
+
             // reset ticks counter
             ui16_cadence_sensor_ticks_counter = 0;
             
@@ -900,7 +916,25 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     ui8_cadence_sensor_ticks_counter_started = 0;
   }
   
-  
+  // for overrun problem
+  if(ui8_fix_overrun_enabled)
+  {
+	if(ui16_cadence_sensor_ticks)
+	{
+		if(ui16_cadence_sensor_ticks_counter > ui16_cadence_sensor_ticks_stop)
+			ui8_cadence_sensor_stop_flag = 1;
+		else
+			ui8_cadence_sensor_stop_flag = 0;
+	}
+	else
+	{
+		ui8_cadence_sensor_stop_flag = 1;
+	}
+  }
+  else
+  {
+	ui8_cadence_sensor_stop_flag = 0;
+  }
   
   /****************************************************************************/
   

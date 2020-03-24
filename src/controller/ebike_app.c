@@ -295,6 +295,15 @@ static void ebike_control_motor (void)
     // set target duty cycle in controller
     ui8_controller_duty_cycle_target = ui8_duty_cycle_target;
   }
+  	  
+  // check if to disable fix overrun
+  if ((ui8_riding_mode == CRUISE_MODE)||
+  (ui8_riding_mode == WALK_ASSIST_MODE)||
+  (ui8_riding_mode == CADENCE_SENSOR_CALIBRATION_MODE)||
+  (ui8_adc_throttle))
+    ui8_fix_overrun_enabled = 0;
+  else
+    ui8_fix_overrun_enabled = 1; 
 }
 
 

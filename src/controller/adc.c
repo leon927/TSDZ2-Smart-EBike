@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho and Leon, 2019.
+ * Copyright (C) Casainho, 2018.
  *
  * Released under the GPL License, Version 3
  */
@@ -17,14 +17,14 @@
 #include "common.h"
 
 
-volatile uint16_t ui16_adc_pedal_torque_offset = 100;
+volatile uint16_t ui16_adc_pedal_torque_offset = 0;
 
 static void adc_trigger (void);
 
 void adc_init (void)
 {
   uint16_t ui16_counter;
-  uint16_t ui16_i;
+  uint8_t ui8_i;
 
   //init GPIO for the used ADC pins
   GPIO_Init(GPIOB, (GPIO_PIN_7 | GPIO_PIN_6 | GPIO_PIN_5 | GPIO_PIN_3), GPIO_MODE_IN_FL_NO_IT);
@@ -42,35 +42,35 @@ void adc_init (void)
   ADC1_ScanModeCmd(ENABLE);
   ADC1_Cmd(ENABLE);
 
-  
-  #define ADC_CALIBRATION_TIME                    300 // 300 -> around 3.0 seconds
-  #define ADC_TORQUE_SENSOR_CALIBRATION_OFFSET    6
-  
-  for (ui16_i = 0; ui16_i < ADC_CALIBRATION_TIME; ++ui16_i)
-  {
-    // set counter for delay
-    ui16_counter = TIM3_GetCounter() + 10; // delay ~10 ms
-    
-    // wait for delay
-    while (TIM3_GetCounter() < ui16_counter);
-    
-    // trigger ADC conversion on all channels (scan conversion, buffered)
-    adc_trigger();
-    
-    // wait for end of conversion
-    while (!ADC1_GetFlagStatus(ADC1_FLAG_EOC));
-    
-    // read ADC torque sensor value
-    uint16_t ui16_temp = UI16_ADC_10_BIT_TORQUE_SENSOR;
-    
-    // filter the ADC torque sensor value and set to offset variable
-    ui16_adc_pedal_torque_offset = filter(ui16_temp, ui16_adc_pedal_torque_offset, 25);
-  }
-  
-  // add calibration offset as the torque sensor offset can be higher or lower depending on how the pedals are oriented
-  ui16_adc_pedal_torque_offset += ADC_TORQUE_SENSOR_CALIBRATION_OFFSET;
-}
+ //********************************************************************************
+  // next code is for "calibrating" the offset value of some ADC channels
 
+  // 6s delay to wait for voltages stabilize (maybe beause capacitors on the circuit)
+  // this was tested on 27.12.2019 by Casainho and lower values like 5s would not work.
+  ui16_counter = TIM3_GetCounter() + 6000;
+  while(TIM3_GetCounter() < ui16_counter) ;
+
+  // read and discard few samples of ADC, to make sure the next samples are ok
+  for(ui8_i = 0; ui8_i < 64; ui8_i++)
+  {
+    ui16_counter = TIM3_GetCounter() + 2;
+    while(TIM3_GetCounter() < ui16_counter) ; // delay
+    adc_trigger();
+    while(!ADC1_GetFlagStatus(ADC1_FLAG_EOC)) ; // wait for end of conversion
+  }
+
+  // read and average a few values of ADC torque sensor
+  ui16_adc_pedal_torque_offset = 0;
+  for(ui8_i = 0; ui8_i < 16; ui8_i++)
+  {
+    ui16_counter = TIM3_GetCounter() + 2;
+    while(TIM3_GetCounter() < ui16_counter) ; // delay
+    adc_trigger();
+    while(!ADC1_GetFlagStatus(ADC1_FLAG_EOC)) ; // wait for end of conversion
+    ui16_adc_pedal_torque_offset += UI16_ADC_10_BIT_TORQUE_SENSOR;
+  }
+  ui16_adc_pedal_torque_offset = ui16_adc_pedal_torque_offset >> 4;  
+}
 
 static void adc_trigger (void)
 {
