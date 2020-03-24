@@ -647,8 +647,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     ui16_counter_duty_cycle_ramp_up = 0;
     
     // for overrun problem
-	if((ui8_cadence_sensor_stop_flag) || (ui8_brake_state))
-		ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN;
+    if((ui8_cadence_sensor_stop_flag) || (ui8_brake_state))
+		  ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN;
 	
     // ramp down duty cycle
     if (++ui16_counter_duty_cycle_ramp_down > ui16_controller_duty_cycle_ramp_down_inverse_step)
@@ -807,8 +807,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
               // set the cadence sensor ticks between the two transitions
               ui16_cadence_sensor_ticks = ui16_cadence_sensor_ticks_counter;
 			  
-			  // for overrun problem
-			  ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 3));
+              // for overrun problem
+              ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 3));
 
               // reset ticks counter
               ui16_cadence_sensor_ticks_counter = 0;
@@ -855,8 +855,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             // set the pulse state
             ui8_cadence_sensor_pulse_state = ui8_cadence_sensor_pin_1_state;
 			
-			// for overrun problem
-			ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 1));
+            // for overrun problem
+            ui16_cadence_sensor_ticks_stop = (ui16_cadence_sensor_ticks + (ui16_cadence_sensor_ticks >> 1));
 
             // reset ticks counter
             ui16_cadence_sensor_ticks_counter = 0;
