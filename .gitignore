@@ -9,9 +9,7 @@
 **/*.rel
 **/*.rst
 **/*.sym
-
-Debug
-
 **/Result.log
-
 **/*.launch
+Debug
+releases

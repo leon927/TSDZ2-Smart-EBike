@@ -387,8 +387,7 @@ volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
 
 // wheel speed sensor
 volatile uint16_t ui16_wheel_speed_sensor_ticks = 0;
-volatile uint32_t ui32_wheel_revolutions = 0;
-
+volatile uint32_t ui32_wheel_speed_sensor_ticks_total = 0;
 
 
 void read_battery_voltage(void);
@@ -763,11 +762,11 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   {
     // update old cadence sensor pin state
     ui8_cadence_sensor_pin_state_old = ui8_cadence_sensor_pin_1_state;
-      
+    
     // increment crank revolutions counter
     if (ui8_cadence_sensor_pin_1_state && !ui8_cadence_sensor_pin_2_state)
-      ui32_crank_revolutions_x20++;
-    
+        ui32_crank_revolutions_x20++;
+  
     // select cadence sensor mode
     switch (ui8_cadence_sensor_mode)
     {
@@ -850,7 +849,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             
             // reset ticks counter
             ui16_cadence_sensor_ticks_counter = 0;
-
+            
             // software based Schmitt trigger to stop motor jitter when at resolution limits
             ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_ADVANCED_MODE_SCHMITT_TRIGGER_THRESHOLD;
           }
@@ -947,7 +946,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         {
           ui16_wheel_speed_sensor_ticks = ui16_wheel_speed_sensor_ticks_counter;
           ui16_wheel_speed_sensor_ticks_counter = 0;
-          ui32_wheel_revolutions++;
+          ++ui32_wheel_speed_sensor_ticks_total;
         }
       }
     }
@@ -1033,11 +1032,11 @@ void read_battery_voltage(void)
   
   // low pass filter the voltage readed value, to avoid possible fast spikes/noise
   ui16_adc_battery_voltage_accumulated -= ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-  ui16_adc_battery_voltage_accumulated += UI16_ADC_10_BIT_BATTERY_VOLTAGE;
+  ui16_adc_battery_voltage_accumulated += ui16_adc_read_battery_voltage_10b();
   ui16_adc_battery_voltage_filtered = ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
   
   // prototype filter, do not use, not tuned, ask Leon
-/*   ui16_adc_battery_voltage_filtered = (UI16_ADC_10_BIT_BATTERY_VOLTAGE + ui16_adc_battery_voltage_accumulated) >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
+/*   ui16_adc_battery_voltage_filtered = (ui16_adc_read_battery_voltage_10b() + ui16_adc_battery_voltage_accumulated) >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
   ui16_adc_battery_voltage_accumulated = ui16_adc_battery_voltage_filtered; */
 }
 
