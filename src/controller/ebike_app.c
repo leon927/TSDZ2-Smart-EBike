@@ -747,8 +747,12 @@ static void calc_wheel_speed(void)
   // calc wheel speed in km/h
   if (ui16_wheel_speed_sensor_ticks)
   {
+    uint32_t tmp = ((5625 * m_configuration_variables.ui16_wheel_perimeter) / ui16_wheel_speed_sensor_ticks)/10; //(15625 * (3600 /(1000*1000)) * 10) = 562.5
+    ui16_wheel_speed_x10 = tmp;
+    /*
     float f_wheel_speed_x10 = (float) PWM_CYCLES_SECOND / ui16_wheel_speed_sensor_ticks; // rps
     ui16_wheel_speed_x10 = f_wheel_speed_x10 * m_configuration_variables.ui16_wheel_perimeter * 0.036; // rps * millimeters per second * ((3600 / (1000 * 1000)) * 10) kms per hour * 10
+    */
   }
   else
   {

@@ -379,6 +379,7 @@ volatile uint8_t ui8_brake_state = 0;
 
 // cadence sensor
 volatile uint16_t ui16_cadence_sensor_ticks = 0;
+volatile uint32_t ui32_crank_revolutions_x20 = 0;
 volatile uint16_t ui16_cadence_sensor_ticks_counter_min_high = CADENCE_SENSOR_TICKS_COUNTER_MIN;
 volatile uint16_t ui16_cadence_sensor_ticks_counter_min_low = CADENCE_SENSOR_TICKS_COUNTER_MIN;
 volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
@@ -386,6 +387,8 @@ volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
 
 // wheel speed sensor
 volatile uint16_t ui16_wheel_speed_sensor_ticks = 0;
+volatile uint32_t ui32_wheel_revolutions = 0;
+
 
 
 void read_battery_voltage(void);
@@ -760,6 +763,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   {
     // update old cadence sensor pin state
     ui8_cadence_sensor_pin_state_old = ui8_cadence_sensor_pin_1_state;
+      
+    // increment crank revolutions counter
+    if (ui8_cadence_sensor_pin_1_state && !ui8_cadence_sensor_pin_2_state)
+      ui32_crank_revolutions_x20++;
     
     // select cadence sensor mode
     switch (ui8_cadence_sensor_mode)
@@ -843,7 +850,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             
             // reset ticks counter
             ui16_cadence_sensor_ticks_counter = 0;
-            
+
             // software based Schmitt trigger to stop motor jitter when at resolution limits
             ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_ADVANCED_MODE_SCHMITT_TRIGGER_THRESHOLD;
           }
@@ -940,6 +947,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         {
           ui16_wheel_speed_sensor_ticks = ui16_wheel_speed_sensor_ticks_counter;
           ui16_wheel_speed_sensor_ticks_counter = 0;
+          ui32_wheel_revolutions++;
         }
       }
     }
