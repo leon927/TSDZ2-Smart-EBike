@@ -53,7 +53,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER);
 // TODO remove this unused interrupt
 void EXTI_PORTC_IRQHandler(void) __interrupt(EXTI_PORTC_IRQHANDLER);
 // UART Receive interrupt
-void UART2_IRQHandler(void) __interrupt(UART2_IRQHANDLER);
+void UART2_RX_IRQHandler(void) __interrupt(UART2_RX_IRQHANDLER);
+void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER);
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////

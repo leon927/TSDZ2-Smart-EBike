@@ -32,7 +32,7 @@ void adc_init (void)
   //init ADC1 peripheral
   ADC1_Init(ADC1_CONVERSIONMODE_SINGLE,
             ADC1_CHANNEL_7,
-            ADC1_PRESSEL_FCPU_D2,
+            ADC1_PRESSEL_FCPU_D3,
             ADC1_EXTTRIG_TIM,
             DISABLE,
             ADC1_ALIGN_LEFT,

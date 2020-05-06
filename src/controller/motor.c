@@ -421,11 +421,12 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   /****************************************************************************/
   
   
-  
   // read battery current ADC value | should happen at middle of the PWM duty_cycle
   ADC1->CR2 &= (uint8_t)(~ADC1_CR2_SCAN);   // disable scan mode
   ADC1->CSR = 0x05;                         // clear EOC flag first (select channel 5)
   ADC1->CR1 |= ADC1_CR1_ADON;               // start ADC1 conversion
+  
+  /* Moved to line 590 
   while (!(ADC1->CSR & ADC1_FLAG_EOC));     // wait for end of conversion
   
   ui8_controller_adc_battery_current = ui16_adc_battery_current = UI16_ADC_10_BIT_BATTERY_CURRENT;
@@ -439,10 +440,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   {
     ui8_adc_motor_phase_current = 0;
   }
-
-
-  /****************************************************************************/
-  
   
   // trigger ADC conversion of all channels (scan conversion, buffered)
   ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
@@ -450,8 +447,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
 
 
-  /****************************************************************************/
-  
+  /***************************************************************************
+  */
   
   // read hall sensor signals and:
   // - find the motor rotor absolute angle
@@ -589,7 +586,30 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   // we need to put phase voltage 90 degrees ahead of rotor position, to get current 90 degrees ahead and have max torque per amp
   ui8_svm_table_index -= 63;
   
-  
+    
+   /****************************************************************************/
+   
+   
+    /* moved from function beginning to avoid some wasted time */
+    while (!(ADC1->CSR & ADC1_FLAG_EOC));     // wait for end of conversion
+
+    ui8_controller_adc_battery_current = ui16_adc_battery_current = UI16_ADC_10_BIT_BATTERY_CURRENT;
+
+    // calculate motor phase current ADC value
+    if (ui8_g_duty_cycle > 0)
+    {
+        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
+    }
+    else
+    {
+        ui8_adc_motor_phase_current = 0;
+    }
+    
+    // trigger ADC conversion of all channels (scan conversion, buffered)
+    ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
+    ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
+    ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
+    
   
   /****************************************************************************/
   
@@ -614,7 +634,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     // set brake state
     ui8_brake_state = !(GPIO_ReadInputPin(BRAKE__PORT, BRAKE__PIN));
   }
-  
+
   
   /****************************************************************************/
   

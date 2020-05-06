@@ -108,13 +108,15 @@ static uint8_t ui8_cruise_PID_initialize = 1;
 
 
 // UART
-#define UART_NUMBER_DATA_BYTES_TO_RECEIVE   7   // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
-#define UART_NUMBER_DATA_BYTES_TO_SEND      26  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_RECEIVE   10  // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_SEND      29  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 
 volatile uint8_t ui8_received_package_flag = 0;
-volatile uint8_t ui8_rx_buffer[UART_NUMBER_DATA_BYTES_TO_RECEIVE + 3];
+volatile uint8_t ui8_rx_buffer[UART_NUMBER_DATA_BYTES_TO_RECEIVE];
 volatile uint8_t ui8_rx_counter = 0;
-volatile uint8_t ui8_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 3];
+volatile uint8_t ui8_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND];
+// initialize the ui8_tx_counter like at the end of send operation to enable the first send.
+volatile uint8_t ui8_tx_counter = UART_NUMBER_DATA_BYTES_TO_SEND + 1;
 volatile uint8_t ui8_i;
 volatile uint8_t ui8_byte_received;
 volatile uint8_t ui8_state_machine = 0;
@@ -1276,52 +1278,36 @@ void ebike_control_lights(void)
 }
 
 
+void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER) {
+
+	if (ui8_tx_counter == UART_NUMBER_DATA_BYTES_TO_SEND) {
+		// All bytes sent. Disable the UART2 Transmit interrupt
+		UART2_ITConfig(UART2_IT_TXE, DISABLE);
+        // signal the end of send operation
+        ui8_tx_counter++;
+	} else
+        // Write one byte to the transmit data register (this also resets the TXE flag)
+        UART2_SendData8(ui8_tx_buffer[ui8_tx_counter++]);
+}
 
 // This is the interrupt that happens when UART2 receives data. We need it to be the fastest possible and so
 // we do: receive every byte and assembly as a package, finally, signal that we have a package to process (on main slow loop)
 // and disable the interrupt. The interrupt should be enable again on main loop, after the package being processed
-void UART2_IRQHandler(void) __interrupt(UART2_IRQHANDLER)
+void UART2_RX_IRQHandler(void) __interrupt(UART2_RX_IRQHANDLER)
 {
-  if (UART2_GetFlagStatus(UART2_FLAG_RXNE) == SET)
-  {
-    UART2->SR &= (uint8_t)~(UART2_FLAG_RXNE); // this may be redundant
-
-    ui8_byte_received = UART2_ReceiveData8 ();
-
-    switch (ui8_state_machine)
-    {
-      case 0:
-      if (ui8_byte_received == 0x59) // see if we get start package byte
-      {
-        ui8_rx_buffer [ui8_rx_counter] = ui8_byte_received;
-        ui8_rx_counter++;
+  if (UART2_GetFlagStatus(UART2_FLAG_RXNE) == SET) {
+    ui8_byte_received = UART2_ReceiveData8();
+    if (ui8_state_machine == 1) {
+        ui8_rx_buffer[ui8_rx_counter++] = ui8_byte_received;
+        if (ui8_rx_counter >= UART_NUMBER_DATA_BYTES_TO_RECEIVE) {
+            ui8_state_machine = 0;
+            ui8_received_package_flag = 1; // signal that we have a full package to be processed
+            UART2_ITConfig(UART2_IT_RXNE_OR, DISABLE);
+        }
+    } else if (ui8_byte_received == 0x59) {
+        ui8_rx_buffer[0] = ui8_byte_received;
+        ui8_rx_counter = 1;
         ui8_state_machine = 1;
-      }
-      else
-      {
-        ui8_rx_counter = 0;
-        ui8_state_machine = 0;
-      }
-      break;
-
-      case 1:
-      ui8_rx_buffer [ui8_rx_counter] = ui8_byte_received;
-      
-      // increment index for next byte
-      ui8_rx_counter++;
-
-      // reset if it is the last byte of the package and index is out of bounds
-      if (ui8_rx_counter >= UART_NUMBER_DATA_BYTES_TO_RECEIVE + 3)
-      {
-        ui8_rx_counter = 0;
-        ui8_state_machine = 0;
-        ui8_received_package_flag = 1; // signal that we have a full package to be processed
-        UART2->CR2 &= ~(1 << 5); // disable UART2 receive interrupt
-      }
-      break;
-
-      default:
-      break;
     }
   }
 }
@@ -1347,13 +1333,13 @@ static void uart_receive_package(void)
     // validation of the package data
     ui16_crc_rx = 0xffff;
     
-    for (ui8_i = 0; ui8_i <= UART_NUMBER_DATA_BYTES_TO_RECEIVE; ui8_i++)
+    for (ui8_i = 0; ui8_i < UART_NUMBER_DATA_BYTES_TO_RECEIVE-2; ui8_i++)
     {
       crc16 (ui8_rx_buffer[ui8_i], &ui16_crc_rx);
     }
 
     // if CRC is correct read the package (16 bit value and therefore last two bytes)
-    if (((((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE + 2]) << 8) + ((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE + 1])) == ui16_crc_rx)
+    if (((((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE - 1]) << 8) + ((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE - 2])) == ui16_crc_rx)
     {
       // message ID
       ui8_message_ID = ui8_rx_buffer [1];
@@ -1499,108 +1485,105 @@ static void uart_receive_package(void)
 
 static void uart_send_package(void)
 {
-  uint16_t ui16_temp;
+    // This shouldn't be happening. It means the previous send operation is not ended
+    if (ui8_tx_counter <= UART_NUMBER_DATA_BYTES_TO_SEND)
+        return;
 
-  // start up byte
-  ui8_tx_buffer[0] = 0x43;
+    uint16_t ui16_temp;
 
-  // battery voltage filtered x1000
-  ui16_temp = ui16_battery_voltage_filtered_x1000;
-  ui8_tx_buffer[1] = (uint8_t) (ui16_temp & 0xff);;
-  ui8_tx_buffer[2] = (uint8_t) (ui16_temp >> 8);
-  
-  // battery current filtered x10
-  ui8_tx_buffer[3] = ui8_battery_current_filtered_x10;
+    // start up byte
+    ui8_tx_buffer[0] = 0x43;
 
-  // wheel speed x10
-  ui8_tx_buffer[4] = (uint8_t) (ui16_wheel_speed_x10 & 0xff);
-  ui8_tx_buffer[5] = (uint8_t) (ui16_wheel_speed_x10 >> 8);
+    // battery voltage filtered x1000
+    ui16_temp = ui16_battery_voltage_filtered_x1000;
+    ui8_tx_buffer[1] = (uint8_t) (ui16_temp & 0xff);;
+    ui8_tx_buffer[2] = (uint8_t) (ui16_temp >> 8);
 
-  // brake state (bit 0)
-  ui8_tx_buffer[6] = ui8_brakes_engaged & 0x01;
-  // FW version (bit 1-7)
-  ui8_tx_buffer[6] |= (FW_VERSION << 1);
+    // battery current filtered x10
+    ui8_tx_buffer[3] = ui8_battery_current_filtered_x10;
 
-  // optional ADC channel value
-  ui8_tx_buffer[7] = UI8_ADC_THROTTLE;
-  
-  // throttle or temperature control
-  switch (m_configuration_variables.ui8_optional_ADC_function)
-  {
+    // wheel speed x10
+    ui8_tx_buffer[4] = (uint8_t) (ui16_wheel_speed_x10 & 0xff);
+    ui8_tx_buffer[5] = (uint8_t) (ui16_wheel_speed_x10 >> 8);
+
+    // brake state (bit 0)
+    ui8_tx_buffer[6] = ui8_brakes_engaged & 0x01;
+    // FW version (bit 1-7)
+    ui8_tx_buffer[6] |= (FW_VERSION << 1);
+
+    // optional ADC channel value
+    ui8_tx_buffer[7] = UI8_ADC_THROTTLE;
+
+    // throttle or temperature control
+    switch (m_configuration_variables.ui8_optional_ADC_function) {
     case THROTTLE_CONTROL:
-      
       // throttle value with offset applied and mapped from 0 to 255
       ui8_tx_buffer[8] = ui8_adc_throttle;
-    
-    break;
-    
+      break;
+
     case TEMPERATURE_CONTROL:
-    
       // current limiting mapped from 0 to 255
       ui8_tx_buffer[8] = ui8_temperature_current_limiting_value;
-    
-    break;
-  }
+      break;
+    }
 
-  // ADC torque sensor
-  ui16_temp = ui16_adc_pedal_torque;
-  ui8_tx_buffer[9] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[10] = (uint8_t) (ui16_temp >> 8);
+    // ADC torque sensor
+    ui16_temp = ui16_adc_pedal_torque;
+    ui8_tx_buffer[9] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[10] = (uint8_t) (ui16_temp >> 8);
 
-  // pedal cadence
-  ui8_tx_buffer[11] = ui8_pedal_cadence_RPM;
+    // pedal cadence
+    ui8_tx_buffer[11] = ui8_pedal_cadence_RPM;
 
-  // PWM duty_cycle
-  ui8_tx_buffer[12] = ui8_g_duty_cycle;
-  
-  // motor speed in ERPS
-  ui16_temp = ui16_motor_get_motor_speed_erps();
-  ui8_tx_buffer[13] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[14] = (uint8_t) (ui16_temp >> 8);
-  
-  // FOC angle
-  ui8_tx_buffer[15] = ui8_g_foc_angle;
-  
-  // system state
-  ui8_tx_buffer[16] = ui8_system_state;
-  
-  // motor temperature
-  ui8_tx_buffer[17] = ui16_motor_temperature_filtered_x10 / 10;
-  
-  // wheel_speed_sensor_tick_counter
-  ui8_tx_buffer[18] = (uint8_t) (ui32_wheel_speed_sensor_ticks_total & 0xff);
-  ui8_tx_buffer[19] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 8) & 0xff);
-  ui8_tx_buffer[20] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 16) & 0xff);
+    // PWM duty_cycle
+    ui8_tx_buffer[12] = ui8_g_duty_cycle;
 
-  // pedal torque x100
-  ui16_temp = ui16_pedal_torque_x100;
-  ui8_tx_buffer[21] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
+    // motor speed in ERPS
+    ui16_temp = ui16_motor_get_motor_speed_erps();
+    ui8_tx_buffer[13] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[14] = (uint8_t) (ui16_temp >> 8);
 
-  // Crank Revolutions
-  ui16_temp = (ui32_crank_revolutions_x20 / 20);
-  ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
-  
-  // cadence sensor pulse high percentage
-  ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
-  ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
+    // FOC angle
+    ui8_tx_buffer[15] = ui8_g_foc_angle;
 
-  // prepare crc of the package
-  ui16_crc_tx = 0xffff;
-  
-  for (ui8_i = 0; ui8_i <= UART_NUMBER_DATA_BYTES_TO_SEND; ui8_i++)
-  {
-    crc16 (ui8_tx_buffer[ui8_i], &ui16_crc_tx);
-  }
-  
-  ui8_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 1] = (uint8_t) (ui16_crc_tx & 0xff);
-  ui8_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND + 2] = (uint8_t) (ui16_crc_tx >> 8) & 0xff;
+    // system state
+    ui8_tx_buffer[16] = ui8_system_state;
 
-  // send the full package to UART
-  for (ui8_i = 0; ui8_i <= UART_NUMBER_DATA_BYTES_TO_SEND + 2; ui8_i++)
-  {
-    putchar (ui8_tx_buffer[ui8_i]);
-  }
+    // motor temperature
+    ui8_tx_buffer[17] = ui16_motor_temperature_filtered_x10 / 10;
+
+    // wheel_speed_sensor_tick_counter
+    ui8_tx_buffer[18] = (uint8_t) (ui32_wheel_speed_sensor_ticks_total & 0xff);
+    ui8_tx_buffer[19] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 8) & 0xff);
+    ui8_tx_buffer[20] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 16) & 0xff);
+
+    // pedal torque x100
+    ui16_temp = ui16_pedal_torque_x100;
+    ui8_tx_buffer[21] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
+
+    // Crank Revolutions
+    ui16_temp = (ui32_crank_revolutions_x20 / 20);
+    ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
+
+    // cadence sensor pulse high percentage
+    ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
+    ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
+
+    // prepare crc of the package
+    ui16_crc_tx = 0xffff;
+
+    for (ui8_i = 0; ui8_i <= 26; ui8_i++) {
+        crc16 (ui8_tx_buffer[ui8_i], &ui16_crc_tx);
+    }
+
+    ui8_tx_buffer[27] = (uint8_t) (ui16_crc_tx & 0xff);
+    ui8_tx_buffer[28] = (uint8_t) (ui16_crc_tx >> 8) & 0xff;
+
+    // Enable UART TX interrupt to send the full message
+    // No need to write the firs byte; the interrupt will fire as soon the IRQ is enabled
+    ui8_tx_counter = 0;
+    UART2_ITConfig(UART2_IT_TXE, ENABLE);
 }
