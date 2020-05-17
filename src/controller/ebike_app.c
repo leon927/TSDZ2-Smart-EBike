@@ -1280,12 +1280,12 @@ void ebike_control_lights(void)
 
 void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER) {
 
-	if (ui8_tx_counter == UART_NUMBER_DATA_BYTES_TO_SEND) {
-		// All bytes sent. Disable the UART2 Transmit interrupt
-		UART2_ITConfig(UART2_IT_TXE, DISABLE);
+    if (ui8_tx_counter == UART_NUMBER_DATA_BYTES_TO_SEND) {
+        // All bytes sent. Disable the UART2 Transmit interrupt
+        UART2_ITConfig(UART2_IT_TXE, DISABLE);
         // signal the end of send operation
         ui8_tx_counter++;
-	} else
+    } else
         // Write one byte to the transmit data register (this also resets the TXE flag)
         UART2_SendData8(ui8_tx_buffer[ui8_tx_counter++]);
 }
@@ -1392,13 +1392,10 @@ static void uart_receive_package(void)
         break;
 
         case 3:
-        
-          // = ui8_rx_buffer[5];
-          
-          // = ui8_rx_buffer[6];
-          
-          // = ui8_rx_buffer[7];
-          
+            // Torque ADC offset fix 
+            if (ui8_rx_buffer[5] != 0) {
+                ui16_adc_pedal_torque_offset = (((uint16_t) ui8_rx_buffer [7]) << 8) + ((uint16_t) ui8_rx_buffer [6]);
+            }
         break;
 
         case 4:
@@ -1516,15 +1513,14 @@ static void uart_send_package(void)
 
     // throttle or temperature control
     switch (m_configuration_variables.ui8_optional_ADC_function) {
-    case THROTTLE_CONTROL:
-      // throttle value with offset applied and mapped from 0 to 255
-      ui8_tx_buffer[8] = ui8_adc_throttle;
-      break;
-
-    case TEMPERATURE_CONTROL:
-      // current limiting mapped from 0 to 255
-      ui8_tx_buffer[8] = ui8_temperature_current_limiting_value;
-      break;
+        case THROTTLE_CONTROL:
+          // throttle value with offset applied and mapped from 0 to 255
+          ui8_tx_buffer[8] = ui8_adc_throttle;
+          break;
+        case TEMPERATURE_CONTROL:
+          // current limiting mapped from 0 to 255
+          ui8_tx_buffer[8] = ui8_temperature_current_limiting_value;
+          break;
     }
 
     // ADC torque sensor
