@@ -1312,18 +1312,25 @@ void UART2_RX_IRQHandler(void) __interrupt(UART2_RX_IRQHANDLER)
   }
 }
 
+
+static uint8_t no_rx_counter = 0;
+
 static void communications_controller (void)
 {
-#ifndef DEBUG_UART
+  #ifndef DEBUG_UART
 
-  // reset riding mode (safety)
-  ui8_riding_mode = OFF_MODE;
+  // Reset to 0 when a valid message from the LCD is received
+  no_rx_counter++;
   
   uart_receive_package ();
 
   uart_send_package ();
 
-#endif
+  // reset riding mode if connection with the LCD is lost for more than 0,3 sec (safety)
+  if (no_rx_counter > 3)
+	ui8_riding_mode = OFF_MODE;
+
+  #endif
 }
 
 static void uart_receive_package(void)
@@ -1341,6 +1348,9 @@ static void uart_receive_package(void)
     // if CRC is correct read the package (16 bit value and therefore last two bytes)
     if (((((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE - 1]) << 8) + ((uint16_t) ui8_rx_buffer [UART_NUMBER_DATA_BYTES_TO_RECEIVE - 2])) == ui16_crc_rx)
     {
+      // Reset the safety counter
+      no_rx_counter = 0;
+
       // message ID
       ui8_message_ID = ui8_rx_buffer [1];
       

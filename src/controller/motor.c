@@ -447,8 +447,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
 
 
-  /***************************************************************************
-  */
+  ****************************************************************************/
   
   // read hall sensor signals and:
   // - find the motor rotor absolute angle
