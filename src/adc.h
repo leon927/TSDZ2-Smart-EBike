@@ -23,6 +23,7 @@
 #define UI16_ADC_10_BIT_THROTTLE             (((*(uint8_t*)(0x53EE)) << 2) | (*(uint8_t*)(0x53EF)))
 #define UI16_ADC_10_BIT_TORQUE_SENSOR        (((*(uint8_t*)(0x53E8)) << 2) | (*(uint8_t*)(0x53E9)))
 
+#define ADC_TORQUE_SENSOR_CALIBRATION_OFFSET    5
 
 extern volatile uint16_t ui16_adc_pedal_torque_offset;
 
