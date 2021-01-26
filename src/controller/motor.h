@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -28,9 +28,12 @@ extern volatile uint8_t ui8_g_duty_cycle;
 extern volatile uint8_t ui8_controller_duty_cycle_target;
 extern volatile uint8_t ui8_g_foc_angle;
 
+// brakes
+extern volatile uint8_t ui8_brake_state;
 
 // cadence sensor
 extern volatile uint16_t ui16_cadence_sensor_ticks;
+extern volatile uint32_t ui32_crank_revolutions_x20;
 extern volatile uint16_t ui16_cadence_sensor_ticks_counter_min_high;
 extern volatile uint16_t ui16_cadence_sensor_ticks_counter_min_low;
 extern volatile uint8_t ui8_cadence_sensor_pulse_state;
@@ -39,7 +42,6 @@ extern volatile uint8_t ui8_cadence_sensor_pulse_state;
 // wheel speed sensor
 extern volatile uint16_t ui16_wheel_speed_sensor_ticks;
 extern volatile uint32_t ui32_wheel_speed_sensor_ticks_total;
-
 
 void hall_sensor_init (void); // must be called before using the motor
 void motor_enable_PWM (void);

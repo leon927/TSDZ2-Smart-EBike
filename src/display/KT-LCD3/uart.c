@@ -1,7 +1,7 @@
 /*
  * LCD3 firmware
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -178,8 +178,8 @@ void uart_data_clock (void)
       p_motor_controller_data->ui16_pedal_torque_x100 = (((uint16_t) ui8_rx_buffer [22]) << 8) + ((uint16_t) ui8_rx_buffer [21]);
       
       // human power x10
-      p_motor_controller_data->ui16_pedal_power_x10 = (((uint16_t) ui8_rx_buffer [24]) << 8) + ((uint16_t) ui8_rx_buffer [23]);
-      
+      p_motor_controller_data->ui16_pedal_power_x10 = ((uint32_t) p_motor_controller_data->ui16_pedal_torque_x100 *  p_motor_controller_data->ui8_pedal_cadence_RPM) / 96;
+
       // cadence sensor pulse high percentage
       if (p_configuration_variables->ui8_cadence_sensor_mode == CALIBRATION_MODE)
       {

@@ -12,6 +12,7 @@
 #include "stm8s.h"
 #include "stm8s_uart2.h"
 #include "main.h"
+#include "interrupts.h"
 
 void uart2_init (void)
 {
@@ -28,6 +29,9 @@ void uart2_init (void)
 	     UART2_MODE_TXRX_ENABLE);
 
   UART2_ITConfig(UART2_IT_RXNE_OR, ENABLE);
+
+  // Set UART2 TX IRQ priority to 2 (less than default 3)
+  ITC_SetSoftwarePriority(UART2_TX_IRQHANDLER, 0x02);
 }
 
 #if __SDCC_REVISION < 9624

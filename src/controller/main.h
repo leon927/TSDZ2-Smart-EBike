@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -12,7 +12,7 @@
 
 //#define DEBUG_UART
 
-
+#define FW_VERSION 1
 
 // motor 
 #define PWM_CYCLES_COUNTER_MAX                                    3125    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 64 us = 3125
@@ -24,7 +24,7 @@
 #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                   20      // 20 -> 20 * 64 us for every duty cycle increment
 
 #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT             40      // 40 -> 40 * 64 us for every duty cycle decrement
-#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN                 10      // 10 -> 10 * 64 us for every duty cycle decrement
+#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN                 8       // 8 -> 8 * 64 us for every duty cycle decrement
 
 /*---------------------------------------------------------
   NOTE: regarding duty cycle (PWM) ramping
@@ -33,7 +33,7 @@
   
   A lower value of the duty cycle inverse step will mean
   a faster acceleration. Be careful not to choose too
-  low values.
+  low values for acceleration.
 ---------------------------------------------------------*/
 
 
@@ -73,8 +73,8 @@
 
 
 
-#define ADC_10_BIT_BATTERY_CURRENT_MAX                            90      // 18 amps (0.2 amps per 10 bit ADC step)
-#define ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX                        150     // 30 amps (0.2 amps per 10 bit ADC step)
+#define ADC_10_BIT_BATTERY_CURRENT_MAX                            106     // 18 amps
+#define ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX                        177     // 30 amps
 
 /*---------------------------------------------------------
   NOTE: regarding ADC battery current max
@@ -182,10 +182,7 @@
 
 // ADC battery voltage measurement
 #define BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X512                  44
-#define BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X256                  22
-#define BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X1000                 86
-#define BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X10000                863
-#define BATTERY_VOLTAGE_PER_8_BIT_ADC_STEP_X256                   88
+#define BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X1000                 87  // conversion value verified with a cheap power meter
 
 /*---------------------------------------------------------
   NOTE: regarding ADC battery voltage measurement
@@ -202,14 +199,7 @@
 
 // ADC battery current measurement
 #define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X512                  102
-#define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X10                   2
-#define BATTERY_CURRENT_PER_8_BIT_ADC_STEP_X10                    8
-
-/*---------------------------------------------------------
-  NOTE: regarding battery current ADC
-
-  1 A per 5 steps of ADC 10 bits
----------------------------------------------------------*/
+#define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100                  17  // conversion value verified with a cheap power meter
 
 
 

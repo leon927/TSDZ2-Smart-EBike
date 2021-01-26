@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -32,7 +32,7 @@ void adc_init (void)
   //init ADC1 peripheral
   ADC1_Init(ADC1_CONVERSIONMODE_SINGLE,
             ADC1_CHANNEL_7,
-            ADC1_PRESSEL_FCPU_D2,
+			ADC1_PRESSEL_FCPU_D3,
             ADC1_EXTTRIG_TIM,
             DISABLE,
             ADC1_ALIGN_LEFT,
@@ -79,43 +79,6 @@ static void adc_trigger (void)
   ADC1->CR1 |= ADC1_CR1_ADON; // Start ADC1 conversion
 }
 
-
-uint16_t ui16_adc_read_battery_current_10b (void)
-{
-  uint16_t temph;
-  uint8_t templ;
-
-  templ = *(uint8_t*)(0x53EB);
-  temph = *(uint8_t*)(0x53EA);
-
-  return ((uint16_t) temph) << 2 | ((uint16_t) templ);
-}
-
-
-uint16_t ui16_adc_read_torque_sensor_10b (void)
-{
-  uint16_t temph;
-  uint8_t templ;
-
-  templ = *(uint8_t*)(0x53E9);
-  temph = *(uint8_t*)(0x53E8);
-
-  return ((uint16_t) temph) << 2 | ((uint16_t) templ);
-}
-
-
-uint16_t ui16_adc_read_throttle_10b (void)
-{
-  uint16_t temph;
-  uint8_t templ;
-
-  templ = *(uint8_t*)(0x53EF);
-  temph = *(uint8_t*)(0x53EE);
-
-  return ((uint16_t) temph) << 2 | ((uint16_t) templ);
-}
-
-
 uint16_t ui16_adc_read_battery_voltage_10b (void)
 {
   uint16_t temph;
@@ -126,4 +89,5 @@ uint16_t ui16_adc_read_battery_voltage_10b (void)
 
   return ((uint16_t) temph) << 2 | ((uint16_t) templ);
 }
+
 

@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -47,10 +47,14 @@ int main (void);
 // *** buffer overflow detected ***: sdcc terminated
 // Caught signal 6: SIGABRT
 
-// PWM cycle interrupt
+// PWM cycle interrupt (called every 64us)
 void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER);
+// Brake signal interrupt (not used ??)
+// TODO remove this unused interrupt
 void EXTI_PORTC_IRQHandler(void) __interrupt(EXTI_PORTC_IRQHANDLER);
-void UART2_IRQHandler(void) __interrupt(UART2_IRQHANDLER);
+// UART Receive interrupt
+void UART2_RX_IRQHandler(void) __interrupt(UART2_RX_IRQHANDLER);
+void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER);
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,17 +75,17 @@ int main (void)
   while (brake_is_set()) ; // hold here while brake is pressed -- this is a protection for development
   lights_init();
   uart2_init();
-  timer2_init();
-  timer3_init();
+  timer2_init();  // 50 KHz and 2us pulse. (Not used ??)
+  timer3_init();  // 1KHz or 1ms period used for main loop timing
   adc_init();
   torque_sensor_init();
   pas_init();
   wheel_speed_sensor_init();
   hall_sensor_init();
   EEPROM_init(); // needed for pwm_init_bipolar_4q
-  pwm_init_bipolar_4q();
+  pwm_init_bipolar_4q();  // init TIM1 at 15625Hz (64us)
   enableInterrupts();
-
+  
   while (1)
   {
     // because of continue; at the end of each if code block that will stop the while (1) loop there,

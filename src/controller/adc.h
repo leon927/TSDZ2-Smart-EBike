@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho, 2018.
+ * Copyright (C) Casainho and Leon, 2019.
  *
  * Released under the GPL License, Version 3
  */
@@ -26,11 +26,7 @@
 
 extern volatile uint16_t ui16_adc_pedal_torque_offset;
 
-
 void adc_init (void);
-uint16_t ui16_adc_read_battery_current_10b (void);
 uint16_t ui16_adc_read_battery_voltage_10b (void);
-uint16_t ui16_adc_read_torque_sensor_10b (void);
-uint16_t ui16_adc_read_throttle_10b (void);
 
 #endif /* _ADC_H */
