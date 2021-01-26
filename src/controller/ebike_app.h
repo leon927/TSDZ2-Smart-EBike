@@ -26,12 +26,6 @@ typedef struct _configuration_variables
   uint8_t ui8_pedal_torque_per_10_bit_ADC_step_x100;
   uint8_t ui8_target_battery_max_power_div25;
   uint8_t configuration_variables;
-  uint8_t ui8_startup_motor_power_boost_feature_enabled;
-  uint8_t ui8_startup_motor_power_boost_assist_level;
-  uint8_t ui8_startup_motor_power_boost_state;
-  uint8_t ui8_startup_motor_power_boost_limit_to_max_power;
-  uint8_t ui8_startup_motor_power_boost_time;
-  uint8_t ui8_startup_motor_power_boost_fade_time;
   uint8_t ui8_optional_ADC_function;
 } struct_configuration_variables;
 
