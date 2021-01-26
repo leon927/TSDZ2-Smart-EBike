@@ -126,7 +126,7 @@ static void apply_boost();
 
 // UART
 #define UART_NUMBER_DATA_BYTES_TO_RECEIVE   7   // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
-#define UART_NUMBER_DATA_BYTES_TO_SEND      26  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_SEND      24  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 
 volatile uint8_t ui8_received_package_flag = 0;
 volatile uint8_t ui8_rx_buffer[UART_NUMBER_DATA_BYTES_TO_RECEIVE + 3];
@@ -1545,8 +1545,10 @@ static void uart_send_package(void)
   ui8_tx_buffer[4] = (uint8_t) (ui16_wheel_speed_x10 & 0xff);
   ui8_tx_buffer[5] = (uint8_t) (ui16_wheel_speed_x10 >> 8);
 
-  // brake state
-  ui8_tx_buffer[6] = ui8_brakes_engaged;
+  // brake state (bit 0)
+  ui8_tx_buffer[6] = ui8_brakes_engaged & 0x01;
+  // FW version (bit 1-7)
+  ui8_tx_buffer[6] |= (FW_VERSION << 1);
 
   // optional ADC channel value
   ui8_tx_buffer[7] = UI8_ADC_THROTTLE;
@@ -1605,13 +1607,13 @@ static void uart_send_package(void)
   ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
 
   // human power x10
-  ui8_tx_buffer[23] = (uint8_t) (ui16_human_power_x10 & 0xff);
-  ui8_tx_buffer[24] = (uint8_t) (ui16_human_power_x10 >> 8);
+//  ui8_tx_buffer[23] = (uint8_t) (ui16_human_power_x10 & 0xff);
+//  ui8_tx_buffer[24] = (uint8_t) (ui16_human_power_x10 >> 8);
   
   // cadence sensor pulse high percentage
   ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
-  ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
+  ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
 
   // prepare crc of the package
   ui16_crc_tx = 0xffff;

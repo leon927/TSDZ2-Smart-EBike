@@ -15,7 +15,7 @@
 #include "lcd.h"
 #include "common.h"
 
-#define UART_NUMBER_DATA_BYTES_TO_RECEIVE   26  // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_RECEIVE   24  // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 #define UART_NUMBER_DATA_BYTES_TO_SEND      7   // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 #define UART_MAX_NUMBER_MESSAGE_ID          6   // change this value depending on how many different packages there are to send
 
@@ -178,12 +178,12 @@ void uart_data_clock (void)
       p_motor_controller_data->ui16_pedal_torque_x100 = (((uint16_t) ui8_rx_buffer [22]) << 8) + ((uint16_t) ui8_rx_buffer [21]);
       
       // human power x10
-      p_motor_controller_data->ui16_pedal_power_x10 = (((uint16_t) ui8_rx_buffer [24]) << 8) + ((uint16_t) ui8_rx_buffer [23]);
-      
+      p_motor_controller_data->ui16_pedal_power_x10 = ((uint32_t) p_motor_controller_data->ui16_pedal_torque_x100 *  p_motor_controller_data->ui8_pedal_cadence_RPM) / 96;
+
       // cadence sensor pulse high percentage
       if (p_configuration_variables->ui8_cadence_sensor_mode == CALIBRATION_MODE)
       {
-        p_configuration_variables->ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ui8_rx_buffer [26]) << 8) + ((uint16_t) ui8_rx_buffer [25]);        
+          p_configuration_variables->ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ui8_rx_buffer [24]) << 8) + ((uint16_t) ui8_rx_buffer [23]);
       }
 
       // flag that the first communication package is received from the motor controller
