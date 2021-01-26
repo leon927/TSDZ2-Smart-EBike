@@ -41,7 +41,7 @@ extern volatile uint8_t ui8_cadence_sensor_pulse_state;
 
 // wheel speed sensor
 extern volatile uint16_t ui16_wheel_speed_sensor_ticks;
-extern volatile uint32_t ui32_wheel_revolutions = 0;
+extern volatile uint32_t ui32_wheel_speed_sensor_ticks_total;
 
 void hall_sensor_init (void); // must be called before using the motor
 void motor_enable_PWM (void);

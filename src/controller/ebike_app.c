@@ -109,7 +109,7 @@ static uint8_t ui8_cruise_PID_initialize = 1;
 
 // UART
 #define UART_NUMBER_DATA_BYTES_TO_RECEIVE   7   // change this value depending on how many data bytes there are to receive ( Package = one start byte + data bytes + two bytes 16 bit CRC )
-#define UART_NUMBER_DATA_BYTES_TO_SEND      21  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
+#define UART_NUMBER_DATA_BYTES_TO_SEND      26  // change this value depending on how many data bytes there are to send ( Package = one start byte + data bytes + two bytes 16 bit CRC )
 
 volatile uint8_t ui8_received_package_flag = 0;
 volatile uint8_t ui8_rx_buffer[UART_NUMBER_DATA_BYTES_TO_RECEIVE + 3];
@@ -1568,15 +1568,24 @@ static void uart_send_package(void)
   // motor temperature
   ui8_tx_buffer[17] = ui16_motor_temperature_filtered_x10 / 10;
   
+  // wheel_speed_sensor_tick_counter
+  ui8_tx_buffer[18] = (uint8_t) (ui32_wheel_speed_sensor_ticks_total & 0xff);
+  ui8_tx_buffer[19] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 8) & 0xff);
+  ui8_tx_buffer[20] = (uint8_t) ((ui32_wheel_speed_sensor_ticks_total >> 16) & 0xff);
+
   // pedal torque x100
   ui16_temp = ui16_pedal_torque_x100;
-  ui8_tx_buffer[18] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[19] = (uint8_t) (ui16_temp >> 8);
+  ui8_tx_buffer[21] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
+
+  // human power x10
+  ui8_tx_buffer[23] = (uint8_t) (ui16_human_power_x10 & 0xff);
+  ui8_tx_buffer[24] = (uint8_t) (ui16_human_power_x10 >> 8);
   
   // cadence sensor pulse high percentage
   ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
-  ui8_tx_buffer[20] = (uint8_t) (ui16_temp & 0xff);
-  ui8_tx_buffer[21] = (uint8_t) (ui16_temp >> 8);
+  ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
 
   // prepare crc of the package
   ui16_crc_tx = 0xffff;
