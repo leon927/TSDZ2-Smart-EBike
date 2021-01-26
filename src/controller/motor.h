@@ -33,7 +33,7 @@ extern volatile uint8_t ui8_brake_state;
 
 // cadence sensor
 extern volatile uint16_t ui16_cadence_sensor_ticks;
-extern volatile uint32_t ui32_crank_revolutions_x20
+extern volatile uint32_t ui32_crank_revolutions_x20;
 extern volatile uint16_t ui16_cadence_sensor_ticks_counter_min_high;
 extern volatile uint16_t ui16_cadence_sensor_ticks_counter_min_low;
 extern volatile uint8_t ui8_cadence_sensor_pulse_state;
