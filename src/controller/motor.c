@@ -1025,11 +1025,11 @@ void read_battery_voltage(void)
   
   // low pass filter the voltage readed value, to avoid possible fast spikes/noise
   ui16_adc_battery_voltage_accumulated -= ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-  ui16_adc_battery_voltage_accumulated += ui16_adc_read_battery_voltage_10b();
+  ui16_adc_battery_voltage_accumulated += UI16_ADC_10_BIT_BATTERY_VOLTAGE;
   ui16_adc_battery_voltage_filtered = ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
   
   // prototype filter, do not use, not tuned, ask Leon
-/*   ui16_adc_battery_voltage_filtered = (ui16_adc_read_battery_voltage_10b() + ui16_adc_battery_voltage_accumulated) >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
+/*   ui16_adc_battery_voltage_filtered = (UI16_ADC_10_BIT_BATTERY_VOLTAGE + ui16_adc_battery_voltage_accumulated) >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
   ui16_adc_battery_voltage_accumulated = ui16_adc_battery_voltage_filtered; */
 }
 
