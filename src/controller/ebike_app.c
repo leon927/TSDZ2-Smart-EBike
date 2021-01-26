@@ -1578,9 +1578,10 @@ static void uart_send_package(void)
   ui8_tx_buffer[21] = (uint8_t) (ui16_temp & 0xff);
   ui8_tx_buffer[22] = (uint8_t) (ui16_temp >> 8);
 
-  // human power x10
-  ui8_tx_buffer[23] = (uint8_t) (ui16_human_power_x10 & 0xff);
-  ui8_tx_buffer[24] = (uint8_t) (ui16_human_power_x10 >> 8);
+  // Crank Revolutions
+  ui16_temp = (ui32_crank_revolutions_x20 / 20);
+  ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
+  ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
   
   // cadence sensor pulse high percentage
   ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
