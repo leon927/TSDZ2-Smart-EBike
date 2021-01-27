@@ -19,8 +19,7 @@
 
 volatile uint16_t ui16_adc_pedal_torque_offset = 100;
 
-void adc_init (void)
-{
+void adc_init(void) {
   uint16_t ui16_counter;
   uint16_t ui16_i;
 
@@ -31,8 +30,7 @@ void adc_init (void)
   ADC1_Init(ADC1_CONVERSIONMODE_SINGLE,
             ADC1_CHANNEL_7,
             ADC1_PRESSEL_FCPU_D4,
-            ADC1_EXTTRIG_TIM,
-            DISABLE,
+            ADC1_EXTTRIG_TIM, DISABLE,
             ADC1_ALIGN_LEFT,
             (ADC1_SCHMITTTRIG_CHANNEL3 | ADC1_SCHMITTTRIG_CHANNEL5 | ADC1_SCHMITTTRIG_CHANNEL6 | ADC1_SCHMITTTRIG_CHANNEL7),
             DISABLE);
@@ -45,19 +43,18 @@ void adc_init (void)
   ADC1_StartConversion();          // start ADC1 conversion
 
   #define ADC_DELAY_TIME     200   // 200 -> around 2.0 seconds
-  for (ui16_i = 0; ui16_i < ADC_DELAY_TIME; ++ui16_i)
-  {
-    ui16_counter = TIM3_GetCounter() + 10; // delay ~10 ms
+    for (ui16_i = 0; ui16_i < ADC_DELAY_TIME; ++ui16_i) {
+      ui16_counter = TIM3_GetCounter() + 10; // delay ~10 ms
     
     // wait for delay
-    while (TIM3_GetCounter() < ui16_counter);
+    while (TIM3_GetCounter() < ui16_counter)
+            ;
   }
   ADC1_ClearFlag(ADC1_FLAG_EOC);
   ADC1_StartConversion();          // start ADC1 conversion
 }
 
-uint16_t ui16_adc_read_battery_voltage_10b (void)
-{
+uint16_t ui16_adc_read_battery_voltage_10b(void) {
   uint16_t temph;
   uint8_t templ;
 

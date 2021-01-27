@@ -15,9 +15,7 @@
 #include "brake.h"
 #include "motor.h"
 
-
-void brake_init (void)
-{
+void brake_init(void) {
   // brake pin as external input pin interrupt
   GPIO_Init(BRAKE__PORT, BRAKE__PIN, GPIO_MODE_IN_FL_NO_IT); // with external interrupt
 }

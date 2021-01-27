@@ -71,7 +71,8 @@ int main (void) {
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);
 
   brake_init();
-  while (GPIO_ReadInputPin(BRAKE__PORT, BRAKE__PIN) == 0) ; // hold here while brake is pressed -- this is a protection for development
+    while (GPIO_ReadInputPin(BRAKE__PORT, BRAKE__PIN) == 0)
+        ; // hold here while brake is pressed -- this is a protection for development
   lights_init();
   uart2_init();
   timer2_init();  // 50 KHz and 2us pulse. (Not used ??)

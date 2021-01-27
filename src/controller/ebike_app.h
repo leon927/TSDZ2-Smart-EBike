@@ -15,8 +15,7 @@
 // cadence sensor
 extern volatile uint16_t ui16_cadence_sensor_ticks_counter_min_speed_adjusted;
 
-typedef struct _configuration_variables
-{
+typedef struct _configuration_variables {
   uint16_t ui16_battery_low_voltage_cut_off_x10;
   uint16_t ui16_wheel_perimeter;
   uint8_t ui8_wheel_speed_max;
