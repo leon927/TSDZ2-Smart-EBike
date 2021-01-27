@@ -421,7 +421,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             ui16_cadence_sensor_ticks = ui16_cadence_calc_counter;
             ui16_cadence_calc_counter = 0;
             // software based Schmitt trigger to stop motor jitter when at resolution limits
-            ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD
+            ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD;
         } else if (ui8_cadence_calc_ref_state == NO_PAS_REF) {
             // this is the new reference state for cadence calculation
             ui8_cadence_calc_ref_state = ui8_pas_state;
