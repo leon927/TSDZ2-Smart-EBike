@@ -19,47 +19,40 @@
 
 volatile uint16_t ui16_adc_pedal_torque_offset = 100;
 
+
 void adc_init(void) {
-  uint16_t ui16_counter;
-  uint16_t ui16_i;
-
   //init GPIO for the used ADC pins
-  GPIO_Init(GPIOB, (GPIO_PIN_7 | GPIO_PIN_6 | GPIO_PIN_5 | GPIO_PIN_3), GPIO_MODE_IN_FL_NO_IT);
+    GPIO_Init(GPIOB, (GPIO_PIN_7 | GPIO_PIN_6 | GPIO_PIN_5 | GPIO_PIN_4), GPIO_MODE_IN_FL_NO_IT);
 
-  //init ADC1 peripheral
-  ADC1_Init(ADC1_CONVERSIONMODE_SINGLE,
-            ADC1_CHANNEL_7,
-            ADC1_PRESSEL_FCPU_D4,
-            ADC1_EXTTRIG_TIM, DISABLE,
-            ADC1_ALIGN_LEFT,
-            (ADC1_SCHMITTTRIG_CHANNEL3 | ADC1_SCHMITTTRIG_CHANNEL5 | ADC1_SCHMITTTRIG_CHANNEL6 | ADC1_SCHMITTTRIG_CHANNEL7),
-            DISABLE);
-
-  ADC1_ScanModeCmd(ENABLE);		   // enable scan mode
-  //ADC1_DataBufferCmd(ENABLE);
-  //ADC1->CR3 |= ADC1_CR3_DBUF;
-  ADC1_Cmd(ENABLE);
-  ADC1_ClearFlag(ADC1_FLAG_EOC);
-  ADC1_StartConversion();          // start ADC1 conversion
-
-  #define ADC_DELAY_TIME     200   // 200 -> around 2.0 seconds
-    for (ui16_i = 0; ui16_i < ADC_DELAY_TIME; ++ui16_i) {
-      ui16_counter = TIM3_GetCounter() + 10; // delay ~10 ms
+    ADC1_DeInit();
+    ADC1_ConversionConfig(ADC1_CONVERSIONMODE_SINGLE, ADC1_CHANNEL_7, ADC1_ALIGN_LEFT);
+    ADC1_PrescalerConfig(ADC1_PRESSEL_FCPU_D4);
+    ADC1_ExternalTriggerConfig(ADC1_EXTTRIG_TIM, DISABLE);
+    ADC1_SchmittTriggerConfig(ADC1_SCHMITTTRIG_CHANNEL4, DISABLE);
+    ADC1_SchmittTriggerConfig(ADC1_SCHMITTTRIG_CHANNEL5, DISABLE);
+    ADC1_SchmittTriggerConfig(ADC1_SCHMITTTRIG_CHANNEL6, DISABLE);
+    ADC1_SchmittTriggerConfig(ADC1_SCHMITTTRIG_CHANNEL7, DISABLE);
+    ADC1_ScanModeCmd(ENABLE);
+    ADC1_Cmd(ENABLE);
     
-    // wait for delay
-    while (TIM3_GetCounter() < ui16_counter)
+    // delay 2 sec (2000 ms) - perform some conversions
+    uint16_t ui16_counter;
+    for (uint8_t ui8 = 0; ui8 < 20; ui8++) {
+        // start ADC1 conversion
+        ADC1_ClearFlag(ADC1_FLAG_EOC);
+        ADC1_StartConversion();
+        ui16_counter = TIM3_GetCounter();
+        while ((TIM3_GetCounter() - ui16_counter) < 100)
             ;
-  }
-  ADC1_ClearFlag(ADC1_FLAG_EOC);
-  ADC1_StartConversion();          // start ADC1 conversion
+  	}
 }
 
 uint16_t ui16_adc_read_battery_voltage_10b(void) {
   uint16_t temph;
   uint8_t templ;
 
-  templ = *(uint8_t*)(0x53ED);
   temph = *(uint8_t*)(0x53EC);
+  templ = *(uint8_t*) (0x53ED);
 
   return ((uint16_t) temph) << 2 | ((uint16_t) templ);
 }

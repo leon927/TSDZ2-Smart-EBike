@@ -52,10 +52,8 @@ uint8_t ui8_half_erps_flag = 0;
 volatile uint16_t ui16_motor_speed_erps = 0;
 
 // power variables
-volatile uint16_t ui16_controller_duty_cycle_ramp_up_inverse_step =
-PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
-volatile uint16_t ui16_controller_duty_cycle_ramp_down_inverse_step =
-PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
+volatile uint16_t ui16_controller_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
+volatile uint16_t ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
 volatile uint16_t ui16_adc_battery_voltage_filtered = 0;
 volatile uint8_t ui8_adc_battery_voltage_cut_off = 0xff;
 volatile uint16_t ui16_adc_battery_current = 0;
@@ -73,8 +71,7 @@ volatile uint8_t ui8_brake_state = 0;
 #define NO_PAS_REF 5
 volatile uint16_t ui16_cadence_sensor_ticks = 0;
 volatile uint32_t ui32_crank_revolutions_x20 = 0;
-static uint16_t ui16_cadence_sensor_ticks_counter_min =
-CADENCE_SENSOR_CALC_COUNTER_MIN;
+static uint16_t ui16_cadence_sensor_ticks_counter_min = CADENCE_SENSOR_CALC_COUNTER_MIN;
 static uint8_t ui8_pas_state_old = 4;
 static uint16_t ui16_cadence_calc_counter, ui16_cadence_stop_counter;
 static uint8_t ui8_cadence_calc_ref_state = NO_PAS_REF;
@@ -110,34 +107,16 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     /****************************************************************************/
 
     // read battery current ADC value | should happen at middle of the PWM duty_cycle
-    //ADC1_DataBufferCmd(DISABLE);
-    //ADC1->CR3 &= (uint8_t)(~ADC1_CR3_DBUF); // disable buffering
     ADC1->CR2 &= (uint8_t) (~ADC1_CR2_SCAN);   // disable scan mode
     ADC1->CSR = 0x05;                 // clear EOC flag first (select channel 5)
     ADC1->CR1 |= ADC1_CR1_ADON;               // start ADC1 conversion
 
-    /* Moved to line 590
-     while (!(ADC1->CSR & ADC1_FLAG_EOC));     // wait for end of conversion
+    /*
+     * Note: To avoid some wasted time, the end of conversion wait loop is moved
+     * just before the first use of the converted value
+     */
 
-     ui8_controller_adc_battery_current = ui16_adc_battery_current = UI16_ADC_10_BIT_BATTERY_CURRENT;
-
-     // calculate motor phase current ADC value
-     if (ui8_g_duty_cycle > 0)
-     {
-     ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
-     }
-     else
-     {
-     ui8_adc_motor_phase_current = 0;
-     }
-
-     // trigger ADC conversion of all channels (scan conversion, buffered)
-     ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
-     ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
-     ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
-
-
-     ****************************************************************************/
+    /****************************************************************************/
 
     // read hall sensor signals and:
     // - find the motor rotor absolute angle
@@ -167,8 +146,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                 ui16_PWM_cycles_counter = 1;
 
                 // this division takes 111 us if PWM_CYCLES_SECOND is a float. But with cast, (uint16_t) PWM_CYCLES_SECOND, it only takes 4.4 us. Verified on 2017.11.20
-                if (ui16_PWM_cycles_counter_total > 0) // avoid division by 0
-                        {
+                // avoid division by 0
+                if (ui16_PWM_cycles_counter_total > 0) {
                     ui16_motor_speed_erps = ((uint16_t) PWM_CYCLES_SECOND) / ui16_PWM_cycles_counter_total;
                 } else {
                     ui16_motor_speed_erps = ((uint16_t) PWM_CYCLES_SECOND);
@@ -176,8 +155,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
                 // update motor commutation state based on motor speed
                 if (ui16_motor_speed_erps > MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES) {
-                    ui8_motor_commutation_type =
-                    SINEWAVE_INTERPOLATION_60_DEGREES;
+                    ui8_motor_commutation_type = SINEWAVE_INTERPOLATION_60_DEGREES;
                 } else {
                     ui8_motor_commutation_type = BLOCK_COMMUTATION;
                     ui8_g_foc_angle = 0;
@@ -260,29 +238,28 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     /****************************************************************************/
 
-    /* moved from function beginning to avoid some wasted time */
+    /* Read battery current */
+    // wait for end of conversion
     while (!(ADC1->CSR & ADC1_FLAG_EOC))
-        ;     // wait for end of conversion
+        ;
 
-    // single conversion: do not use bufferd value
-    // 17.5 A ???
-    //ui8_controller_adc_battery_current = ui16_adc_battery_current = ((*(uint8_t*)(ADC1->DRH)) << 2) | (*(uint8_t*)(ADC1->DRL));
-    ui8_controller_adc_battery_current = ui16_adc_battery_current =
-    UI16_ADC_10_BIT_BATTERY_CURRENT;
-
-    // calculate motor phase current ADC value
-    if (ui8_g_duty_cycle > 0) {
-        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
-    } else {
-        ui8_adc_motor_phase_current = 0;
-    }
+    // Single conversion: do not use bufferd value !
+    // Left alignment: Read MSB first then read LSB !
+    ui16_adc_battery_current = ADC1->DRH;
+    ui8_controller_adc_battery_current = ADC1->DRL;
+    ui16_adc_battery_current = (ui16_adc_battery_current << 2) |  (uint16_t)((ui8_controller_adc_battery_current & 0x03));
+    ui8_controller_adc_battery_current = ui16_adc_battery_current;
 
     // trigger ADC conversion of all channels (scan conversion, buffered)
     ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
-    //ADC1_DataBufferCmd(ENABLE);
-    //ADC1->CR3 |= ADC1_CR3_DBUF;   // enable buffering
     ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
     ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
+
+    // calculate motor phase current ADC value
+    if (ui8_g_duty_cycle > 0)
+        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
+    else
+        ui8_adc_motor_phase_current = 0;
 
     /****************************************************************************/
 
@@ -523,14 +500,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     // clears the TIM1 interrupt TIM1_IT_UPDATE pending bit
     TIM1->SR1 = (uint8_t) (~(uint8_t) TIM1_IT_CC4);
-}
-
-void motor_disable_PWM(void) {
-    TIM1_CtrlPWMOutputs(DISABLE);
-}
-
-void motor_enable_PWM(void) {
-    TIM1_CtrlPWMOutputs(ENABLE);
 }
 
 void hall_sensor_init(void) {

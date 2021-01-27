@@ -22,11 +22,13 @@
 #include "common.h"
 
 // Initial configuration values
-volatile struct_configuration_variables m_configuration_variables = { .ui16_battery_low_voltage_cut_off_x10 = 390, // 48 V battery, 39.0V (3.0 * 13)
-        .ui16_wheel_perimeter = 2050,           // 26'' wheel: 2050 mm perimeter
-        .ui8_wheel_speed_max = 25,                   // 25 Km/h
+volatile struct_configuration_variables m_configuration_variables = {
+        .ui16_battery_low_voltage_cut_off_x10 = 390, // 48 V battery, 39.0V (3.0 * 13)
+        .ui16_wheel_perimeter = 2275,                // 28'' wheel: 2275 mm perimeter
+        .ui8_wheel_speed_max = 50,                   // 50 Km/h
         .ui8_motor_type = 0,                         // 48V motor
-        .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67, .ui8_target_battery_max_power_div25 = 20, // 500W (500/25 = 20)
+        .ui8_pedal_torque_per_10_bit_ADC_step_x100 = 67,
+        .ui8_target_battery_max_power_div25 = 20, // 500W (500/25 = 20)
         .ui8_optional_ADC_function = 0               // 0 = no function
         };
 
@@ -41,12 +43,9 @@ static uint8_t ui8_lights_state = 0;
 
 // power control
 static uint8_t ui8_battery_current_max = DEFAULT_VALUE_BATTERY_CURRENT_MAX;
-static uint16_t ui16_duty_cycle_ramp_up_inverse_step =
-PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
-static uint16_t ui16_duty_cycle_ramp_up_inverse_step_default =
-PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
-static uint16_t ui16_duty_cycle_ramp_down_inverse_step =
-PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
+static uint16_t ui16_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
+static uint16_t ui16_duty_cycle_ramp_up_inverse_step_default = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
+static uint16_t ui16_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
 static uint16_t ui16_battery_voltage_filtered_x1000 = 0;
 static uint8_t ui8_battery_current_filtered_x10 = 0;
 static uint8_t ui8_adc_battery_current_max = ADC_10_BIT_BATTERY_CURRENT_MAX;
@@ -57,8 +56,7 @@ static uint8_t ui8_duty_cycle_target = 0;
 static uint8_t ui8_brakes_engaged = 0;
 
 // cadence sensor
-volatile uint16_t ui16_cadence_sensor_ticks_counter_min_speed_adjusted =
-CADENCE_SENSOR_CALC_COUNTER_MIN;
+volatile uint16_t ui16_cadence_sensor_ticks_counter_min_speed_adjusted = CADENCE_SENSOR_CALC_COUNTER_MIN;
 static uint8_t ui8_pedal_cadence_RPM = 0;
 
 // torque sensor
@@ -310,7 +308,6 @@ volatile uint8_t ui8_rx_counter = 0;
 volatile uint8_t ui8_tx_buffer[UART_NUMBER_DATA_BYTES_TO_SEND];
 // initialize the ui8_tx_counter like at the end of send operation to enable the first send.
 volatile uint8_t ui8_tx_counter = UART_NUMBER_DATA_BYTES_TO_SEND + 1;
-volatile uint8_t ui8_i;
 volatile uint8_t ui8_byte_received;
 volatile uint8_t ui8_state_machine = 0;
 static uint16_t ui16_crc_rx;
@@ -444,10 +441,8 @@ static void ebike_control_motor(void) {
 
     // reset control parameters if... (safety)
     if (ui8_brakes_engaged || ui8_system_state != NO_ERROR || !ui8_motor_enabled) {
-        ui16_controller_duty_cycle_ramp_up_inverse_step =
-        PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
-        ui16_controller_duty_cycle_ramp_down_inverse_step =
-        PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN;
+        ui16_controller_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
+        ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN;
         ui8_controller_adc_battery_current_target = 0;
         ui8_controller_duty_cycle_target = 0;
     } else {
@@ -468,8 +463,7 @@ static void ebike_control_motor(void) {
 
         // limit target duty cycle ramp up inverse step if lower than min value (safety)
         if (ui16_duty_cycle_ramp_up_inverse_step < PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN) {
-            ui16_duty_cycle_ramp_up_inverse_step =
-            PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN;
+            ui16_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN;
         }
 
         // limit target duty cycle ramp down inverse step if lower than min value (safety)
@@ -1003,7 +997,8 @@ static void calc_cadence(void) {
 }
 
 static void get_battery_voltage_filtered(void) {
-    ui16_battery_voltage_filtered_x1000 = ui16_adc_battery_voltage_filtered * BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X1000;
+    ui16_battery_voltage_filtered_x1000 = ui16_adc_battery_voltage_filtered
+            * BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X1000;
 }
 
 static void get_battery_current_filtered(void) {
@@ -1020,8 +1015,7 @@ static void get_pedal_torque(void) {
         ui16_adc_pedal_torque_offset = filter(ui16_tmp, ui16_adc_pedal_torque_offset, 25);
         toffset_cycle_counter++;
         if (toffset_cycle_counter == TOFFSET_CYCLES)
-            ui16_adc_pedal_torque_offset +=
-            ADC_TORQUE_SENSOR_CALIBRATION_OFFSET;
+            ui16_adc_pedal_torque_offset += ADC_TORQUE_SENSOR_CALIBRATION_OFFSET;
         ui16_adc_pedal_torque = ui16_adc_pedal_torque_offset;
     } else {
         // get adc pedal torque
@@ -1363,6 +1357,7 @@ static void communications_controller(void) {
 }
 
 static void uart_receive_package(void) {
+    uint8_t ui8_i;
     if (ui8_received_package_flag) {
         // validation of the package data
         ui16_crc_rx = 0xffff;
@@ -1525,6 +1520,7 @@ static void uart_receive_package(void) {
 }
 
 static void uart_send_package(void) {
+    uint8_t ui8_i;
     // This shouldn't be happening. It means the previous send operation is not ended
     if (ui8_tx_counter <= UART_NUMBER_DATA_BYTES_TO_SEND)
         return;
@@ -1605,9 +1601,8 @@ static void uart_send_package(void) {
     ui8_tx_buffer[23] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
 
-    // cadence sensor pulse high percentage
-    //ui16_temp = ui16_cadence_sensor_pulse_high_percentage_x10;
-    ui16_temp = 500;
+    // Free for future use
+    ui16_temp = 0;
     ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
 

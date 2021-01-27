@@ -44,8 +44,6 @@ extern volatile uint16_t ui16_wheel_speed_sensor_ticks;
 extern volatile uint32_t ui32_wheel_speed_sensor_ticks_total;
 
 void hall_sensor_init (void); // must be called before using the motor
-void motor_enable_PWM (void);
-void motor_disable_PWM (void);
 void motor_enable_pwm(void);
 void motor_disable_pwm(void);
 void motor_controller (void);
