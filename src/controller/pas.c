@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include "stm8s.h"
 #include "pins.h"
+#include "interrupts.h"
+#include "motor.h"
+#include "main.h"
+#include "ebike_app.h"
 
 void pas_init (void)
 {

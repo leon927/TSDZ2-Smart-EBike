@@ -49,9 +49,7 @@ int main (void);
 
 // PWM cycle interrupt (called every 64us)
 void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER);
-// Brake signal interrupt (not used ??)
-// TODO remove this unused interrupt
-void EXTI_PORTC_IRQHandler(void) __interrupt(EXTI_PORTC_IRQHANDLER);
+
 // UART Receive interrupt
 void UART2_RX_IRQHandler(void) __interrupt(UART2_RX_IRQHANDLER);
 void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER);
@@ -72,7 +70,7 @@ int main (void)
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);
 
   brake_init();
-  while (brake_is_set()) ; // hold here while brake is pressed -- this is a protection for development
+  while (GPIO_ReadInputPin(BRAKE__PORT, BRAKE__PIN) == 0) ; // hold here while brake is pressed -- this is a protection for development
   lights_init();
   uart2_init();
   timer2_init();  // 50 KHz and 2us pulse. (Not used ??)

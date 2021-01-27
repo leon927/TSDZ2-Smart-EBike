@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho and Leon, 2019.
+ * Copyright (C) Casainho, Leon, MSpider65 2020.
  *
  * Released under the GPL License, Version 3
  */
@@ -23,7 +23,7 @@
 #include "common.h"
 
 #define SVM_TABLE_LEN   256
-#define SIN_TABLE_LEN   60
+#define SIN_TABLE_LEN   59
 
 uint8_t ui8_svm_table[SVM_TABLE_LEN] =
 {
@@ -282,12 +282,11 @@ uint8_t ui8_svm_table[SVM_TABLE_LEN] =
     242 ,
     241 ,
     239 ,
-    238 ,
+    238
 };
 
 uint8_t ui8_sin_table[SIN_TABLE_LEN] =
 {
-    0 ,
     3 ,
     6 ,
     9 ,
@@ -380,9 +379,7 @@ volatile uint8_t ui8_brake_state = 0;
 // cadence sensor
 volatile uint16_t ui16_cadence_sensor_ticks = 0;
 volatile uint32_t ui32_crank_revolutions_x20 = 0;
-volatile uint16_t ui16_cadence_sensor_ticks_counter_min_high = CADENCE_SENSOR_TICKS_COUNTER_MIN;
-volatile uint16_t ui16_cadence_sensor_ticks_counter_min_low = CADENCE_SENSOR_TICKS_COUNTER_MIN;
-volatile uint8_t ui8_cadence_sensor_pulse_state = 0;
+static uint16_t ui16_cadence_sensor_ticks_counter_min = CADENCE_SENSOR_CALC_COUNTER_MIN;
 
 
 // wheel speed sensor
@@ -763,172 +760,67 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   TIM1->CCR1H = (uint8_t) (ui8_phase_a_voltage >> 7);
   TIM1->CCR1L = (uint8_t) (ui8_phase_a_voltage << 1);
 
+  
+  
   /****************************************************************************/
-  
-  static uint16_t ui16_cadence_sensor_ticks_counter;
-  static uint16_t ui16_cadence_sensor_ticks_counter_min;
-  static uint8_t ui8_cadence_sensor_ticks_counter_started;
-  static uint8_t ui8_cadence_sensor_pin_state_old;
-  static uint8_t ui8_pedals_rotate_backwards = 0;
-  
-  // check cadence sensor pins state
-  volatile uint8_t ui8_cadence_sensor_pin_1_state = PAS2__PORT->IDR & PAS2__PIN; // PAS2__PIN is leading
-  volatile uint8_t ui8_cadence_sensor_pin_2_state = PAS1__PORT->IDR & PAS1__PIN; // PAS1__PIN is following
-  
-  // check if cadence sensor pin state has changed
-  if (ui8_cadence_sensor_pin_1_state != ui8_cadence_sensor_pin_state_old)
-  {
-    // update old cadence sensor pin state
-    ui8_cadence_sensor_pin_state_old = ui8_cadence_sensor_pin_1_state;
 
-    // Check if pedals rotate backwards
-    ui8_pedals_rotate_backwards = (ui8_cadence_sensor_pin_1_state == ui8_cadence_sensor_pin_2_state);
 
-    // increment crank revolutions counter
-    if (ui8_cadence_sensor_pin_1_state && !ui8_cadence_sensor_pin_2_state)
-        ui32_crank_revolutions_x20++;
+	/*
+	* ui8_pas_state: PAS1=bit0 and PAS2=bit1
+	* Pedal forward ui8_pas_state sequence is: 0x01 -> 0x00 -> 0x02 -> 0x03 -> 0x01
+	* Cadence calculated on 0x00 -> 0x02 transition
+	* Other transitions are used to detect movement (cadence set to 5RPM if previously stopped) -> three times faster startup detection
+	* Every transition resets the stop detection counter. -> three times faster stop detection
+	*/
 
-    // select cadence sensor mode
-    switch (ui8_cadence_sensor_mode)
-    {
-      case STANDARD_MODE:
+	#define CADENCE_TICKS_5RPM 9375
+    // software based Schmitt trigger to stop motor jitter when at resolution limits
+	#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD    350
       
-        #define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD    1000 // software based Schmitt trigger to stop motor jitter when at resolution limits
+	static uint8_t ui8_pas_state_old = 4;
+	static uint16_t ui16_cadence_calc_counter, ui16_cadence_stop_counter;
+	static uint8_t ui8_cadence_calc_counter_started;
+	static uint8_t ui8_pas_old_valid_state[4] = {0x01,0x03,0x00,0x02};
       
-        // only consider the 0 -> 1 transition
-        if (ui8_cadence_sensor_pin_1_state)
-        {
-          // set the ticks counter limit depending on current wheel speed
-          ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_speed_adjusted;
+	uint8_t ui8_pas_state = (PAS1__PORT->IDR & PAS1__PIN) | ((PAS2__PORT->IDR & PAS2__PIN) >> 6);
           
-          // check if first transition
-          if (!ui8_cadence_sensor_ticks_counter_started) 
-          {
-            // start cadence sensor ticks counter as this is the first transition
-            ui8_cadence_sensor_ticks_counter_started = 1;
-          }
-          else
-          {
-            // check if cadence sensor ticks counter is out of bounds and also check direction of rotation
-            if ((ui16_cadence_sensor_ticks_counter < CADENCE_SENSOR_TICKS_COUNTER_MAX) || 
-                    ui8_pedals_rotate_backwards)
-            {
-              // reset variables
+	if (ui8_pas_state != ui8_pas_state_old) {
+		if (ui8_pas_state_old != ui8_pas_old_valid_state[ui8_pas_state]) {
+			// pedals rotates backward or too fast transition
               ui16_cadence_sensor_ticks = 0;
-              ui16_cadence_sensor_ticks_counter = 0;
-              ui8_cadence_sensor_ticks_counter_started = 0;
-            }
-            else
-            {
-              // set the cadence sensor ticks between the two transitions
-              ui16_cadence_sensor_ticks = ui16_cadence_sensor_ticks_counter;
+			ui8_cadence_calc_counter_started = 0;
+		} else if (ui8_pas_state != 0x02) {
+			if (ui16_cadence_sensor_ticks == 0)
+				ui16_cadence_sensor_ticks = CADENCE_TICKS_5RPM;
+		} else {
+			// main transition 0x00 -> 0x02 (calculation of the correct cadence)
+			ui32_crank_revolutions_x20++;
+			ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_speed_adjusted;
               
-              // reset ticks counter
-              ui16_cadence_sensor_ticks_counter = 0;
-              
+			if (ui8_cadence_calc_counter_started) {
+				ui16_cadence_sensor_ticks = ui16_cadence_calc_counter;
               // software based Schmitt trigger to stop motor jitter when at resolution limits
               ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD;
-            }
-          }
-        }
-        
-      break;
-      
-      case ADVANCED_MODE:
-        
-        #define CADENCE_SENSOR_ADVANCED_MODE_TICKS_COUNTER_MAX            150   // CADENCE_SENSOR_TICKS_COUNTER_MAX / 2
-        #define CADENCE_SENSOR_ADVANCED_MODE_SCHMITT_TRIGGER_THRESHOLD    500   // software based Schmitt trigger to stop motor jitter when at resolution limits
-        
-        // set the ticks counter limit depending on current wheel speed and pin state
-        if (ui8_cadence_sensor_pin_1_state) {
-            ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_high;
         } else {
-            ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_low;
+				ui8_cadence_calc_counter_started = 1;
+				ui16_cadence_sensor_ticks = CADENCE_TICKS_5RPM;
         }
-        
-        // check if first transition
-        if (!ui8_cadence_sensor_ticks_counter_started)
-        {
-          // start cadence sensor ticks counter as this is the first transition
-          ui8_cadence_sensor_ticks_counter_started = 1;
-        }
-        else
-        {
-          // check if cadence sensor ticks counter is out of bounds and also check direction of rotation
-          if ((ui16_cadence_sensor_ticks_counter < CADENCE_SENSOR_ADVANCED_MODE_TICKS_COUNTER_MAX) || 
-                  ui8_pedals_rotate_backwards)
-          {
-            // reset variables
-            ui16_cadence_sensor_ticks = 0;
-            ui16_cadence_sensor_ticks_counter = 0;
-            ui8_cadence_sensor_ticks_counter_started = 0;
-          }
-          else
-          {
-            // set the cadence sensor ticks between the two transitions
-            ui16_cadence_sensor_ticks = ui16_cadence_sensor_ticks_counter;
-            
-            // set the pulse state
-            ui8_cadence_sensor_pulse_state = ui8_cadence_sensor_pin_1_state;
-            
-            // reset ticks counter
-            ui16_cadence_sensor_ticks_counter = 0;
-
-            // software based Schmitt trigger to stop motor jitter when at resolution limits
-            ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_ADVANCED_MODE_SCHMITT_TRIGGER_THRESHOLD;
-          }
-        }
-        
-      break;
-      
-      case CALIBRATION_MODE:
-        
-        #define CADENCE_SENSOR_CALIBRATION_MODE_TICKS_COUNTER_MIN   20000
-        
-        // set the ticks counter limit
-        ui16_cadence_sensor_ticks_counter_min = CADENCE_SENSOR_CALIBRATION_MODE_TICKS_COUNTER_MIN;
-        
-        // check if first transition
-        if (!ui8_cadence_sensor_ticks_counter_started)
-        {
-          // start cadence sensor ticks counter as this is the first transition
-          ui8_cadence_sensor_ticks_counter_started = 1;
-        }
-        else
-        {
-          // set the cadence sensor ticks depending on pin state
-          if (ui8_cadence_sensor_pin_1_state)
-          {
-            // pin state is high so previous pin state was low
-            ui16_cadence_sensor_ticks_counter_min_low = ui16_cadence_sensor_ticks_counter;
-          }
-          else
-          {
-            // pin state is low so previous pin state was high
-            ui16_cadence_sensor_ticks_counter_min_high = ui16_cadence_sensor_ticks_counter;
-          }
-          
-          // reset ticks counter
-          ui16_cadence_sensor_ticks_counter = 0;
-        }
-        
-      break;
+			ui16_cadence_calc_counter = 0;
     }
+		// reset the counter used to detect pedal stop
+		ui16_cadence_stop_counter = 0;
+		// save current PAS state
+		ui8_pas_state_old = ui8_pas_state;
   }
   
-  // increment and also limit the ticks counter
-  if ((ui8_cadence_sensor_ticks_counter_started) &&
-          (ui16_cadence_sensor_ticks_counter < ui16_cadence_sensor_ticks_counter_min) &&
-          !ui8_pedals_rotate_backwards)
-  {
-    ++ui16_cadence_sensor_ticks_counter;
-  }
-  else
-  {
-    // reset variables
+	if (++ui16_cadence_stop_counter > ui16_cadence_sensor_ticks_counter_min) {
+		// pedals stop detected
     ui16_cadence_sensor_ticks = 0;
-    ui16_cadence_sensor_ticks_counter = 0;
-    ui8_cadence_sensor_ticks_counter_started = 0;
+		ui16_cadence_stop_counter = 0;
+		ui8_cadence_calc_counter_started = 0;
+	} else if (ui8_cadence_calc_counter_started) {
+		// increment cadence tick counter
+		++ui16_cadence_calc_counter;
   }
   
   
@@ -988,27 +880,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     ui16_wheel_speed_sensor_ticks_counter = 0;
     ui8_wheel_speed_sensor_ticks_counter_started = 0;
   }
-
-
-
-  /****************************************************************************/
-
-//  static uint8_t ui8_first_time_run_flag;
-//
-//  // reload watchdog timer, every PWM cycle to avoid automatic reset of the microcontroller
-//  if (!ui8_first_time_run_flag)
-//  { // from the init of watchdog up to first reset on PWM cycle interrupt,
-//    // it can take up to 250ms and so we need to init here inside the PWM cycle
-//    ui8_first_time_run_flag = 1;
-//    watchdog_init ();
-//  }
-//  else
-//  {
-//    IWDG->KR = IWDG_KEY_REFRESH; // reload watch dog timer counter
-//  }
-
-
-  /****************************************************************************/
 
 
   // clears the TIM1 interrupt TIM1_IT_UPDATE pending bit
@@ -1136,7 +1007,7 @@ void calc_foc_angle(void)
   // 36 V motor: L = 76uH
   // 48 V motor: L = 135uH
   // ui32_l_x1048576 = 142; // 1048576 = 2^20 | 48V
-  // ui32_l_x1048576 = 80; // 1048576 = 2^20 | 36V
+  // ui32_l_x1048576 = 84; // 1048576 = 2^20 | 36V
   //
   // ui32_l_x1048576 = 142 <--- THIS VALUE WAS verified experimentaly on 2018.07 to be near the best value for a 48V motor
   // Test done with a fixed mechanical load, duty_cycle = 200 and 100 and measured battery current was 16 and 6 (10 and 4 amps)
@@ -1150,7 +1021,7 @@ void calc_foc_angle(void)
     break;
 
     case 1:
-      ui32_l_x1048576 = 80; // 36 V motor
+      ui32_l_x1048576 = 84; // 36 V motor
       ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
     break;
     
@@ -1188,18 +1059,15 @@ uint8_t asin_table (uint8_t ui8_inverted_angle_x128)
 {
   uint8_t ui8_index = 0;
 
-  while (ui8_index < SIN_TABLE_LEN)
-  {
+  while (ui8_index < SIN_TABLE_LEN) {
     if (ui8_inverted_angle_x128 < ui8_sin_table [ui8_index])
-    {
       break;
-    }
 
     ui8_index++;
   }
 
   // first value of table is 0 so ui8_index will always increment to at least 1 and return 0
-  return ui8_index--;
+  return ui8_index;
 }
 
 

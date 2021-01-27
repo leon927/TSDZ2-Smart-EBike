@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho and Leon, 2019.
+ * Copyright (C) Casainho, Leon, MSpider65 2020.
  *
  * Released under the GPL License, Version 3
  */
@@ -12,7 +12,7 @@
 
 //#define DEBUG_UART
 
-#define FW_VERSION 4
+#define FW_VERSION 5
 
 // motor 
 #define PWM_CYCLES_COUNTER_MAX                                    3125    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 64 us = 3125
@@ -103,14 +103,9 @@
 
 // cadence sensor
 #define CADENCE_SENSOR_NUMBER_MAGNETS                             20
-#define CADENCE_SENSOR_NUMBER_MAGNETS_X2                          (CADENCE_SENSOR_NUMBER_MAGNETS * 2)
 
-#define CADENCE_SENSOR_TICKS_COUNTER_MAX                          300
-#define CADENCE_SENSOR_TICKS_COUNTER_MIN                          10000
+#define CADENCE_SENSOR_CALC_COUNTER_MIN                          3500
 
-#define CADENCE_SENSOR_PULSE_PERCENTAGE_X10_DEFAULT               500
-#define CADENCE_SENSOR_PULSE_PERCENTAGE_X10_MAX                   800
-#define CADENCE_SENSOR_PULSE_PERCENTAGE_X10_MIN                   200
 
 /*-------------------------------------------------------------------------------
   NOTE: regarding the cadence sensor
@@ -118,34 +113,10 @@
   CADENCE_SENSOR_NUMBER_MAGNETS = 20, this is the number of magnets used for
   the cadence sensor. Was validated on August 2018 by Casainho and jbalat
   
-  x = (1/(150RPM/60)) / (0.000064)
-  
-  6250 / CADENCE_SENSOR_NUMBER_MAGNETS ≈ 313 -> 150 RPM
-  
-  93750 / CADENCE_SENSOR_NUMBER_MAGNETS ≈ 4688 -> 10 RPM
-  
-  CADENCE_SENSOR_TICKS_COUNTER_MAX = x / CADENCE_SENSOR_NUMBER_MAGNETS
-  
-
-  
-  CADENCE_SENSOR_NUMBER_MAGNETS_X2 = 40, this is the number of transitions 
-  in one crank revolution
-  
-  x = (1/(150RPM/60)) / (0.000064)
-  
-  6250 / CADENCE_SENSOR_NUMBER_MAGNETS_X2 ≈ 156 -> 150 RPM
-  
-  93750 / CADENCE_SENSOR_NUMBER_MAGNETS_X2 ≈ 2344 -> 10 RPM, or 5 RPM if set to around 4600
-  
-  CADENCE_SENSOR_TICKS_COUNTER_MAX = x / CADENCE_SENSOR_NUMBER_MAGNETS_X2
-  
-  
-  
   Cadence is calculated by counting how much time passes between two 
   transitions. Depending on if all transitions are measured or simply 
   transitions of the same kind it is important to adjust the calculation of 
-  pedal cadence. If measuring all transistions it is also important to 
-  adjust for the different spacings between the transitions.
+  pedal cadence.
 -------------------------------------------------------------------------------*/
 
 
@@ -158,14 +129,6 @@
 
 // default values
 #define DEFAULT_VALUE_BATTERY_CURRENT_MAX                         10  // 10 amps
-#define DEFAULT_VALUE_TARGET_BATTERY_MAX_POWER_X10                50  // 500 watts
-#define DEFAULT_VALUE_BATTERY_LOW_VOLTAGE_CUT_OFF_X10_0           134 // 48 V battery, LVC = 39.0 (3.0 * 13): (134 + (1 << 8)) = 390
-#define DEFAULT_VALUE_BATTERY_LOW_VOLTAGE_CUT_OFF_X10_1           1
-#define DEFAULT_VALUE_WHEEL_PERIMETER_0                           2   // 26'' wheel: 2050 mm perimeter (2 + (8 << 8))
-#define DEFAULT_VALUE_WHEEL_PERIMETER_1                           8
-#define DEFAULT_VALUE_WHEEL_SPEED_MAX                             50  // 50 km/h
-#define DEFAULT_VALUE_MOTOR_TYPE                                  0
-#define DEFAULT_VALUE_PEDAL_TORQUE_PER_10_BIT_ADC_STEP_X100       67
 
 /*---------------------------------------------------------
 

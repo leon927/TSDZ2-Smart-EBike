@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho and Leon, 2019.
+ * Copyright (C) Casainho, Leon, MSpider65 2020.
  *
  * Released under the GPL License, Version 3
  */
@@ -18,7 +18,6 @@
 #define eMTB_ASSIST_MODE                          4
 #define WALK_ASSIST_MODE                          5
 #define CRUISE_MODE                               6
-#define CADENCE_SENSOR_CALIBRATION_MODE           7
 
 
 // error codes
@@ -29,7 +28,6 @@
 #define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4
 #define ERROR_NO_SPEED_SENSOR_DETECTED            5
 #define ERROR_LOW_CONTROLLER_VOLTAGE              6   // controller works with no less than 15 V so give error code if voltage is too low
-#define ERROR_CADENCE_SENSOR_CALIBRATION          7
 
 
 // walk assist
@@ -45,11 +43,6 @@
 #define TEMPERATURE_CONTROL                       1
 #define THROTTLE_CONTROL                          2
 
-
-// cadence sensor
-#define STANDARD_MODE                             0
-#define ADVANCED_MODE                             1
-#define CALIBRATION_MODE                          2
 
 
 int32_t map (int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);

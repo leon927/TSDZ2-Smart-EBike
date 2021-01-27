@@ -1,7 +1,7 @@
 /*
  * TongSheng TSDZ2 motor controller firmware/
  *
- * Copyright (C) Casainho and Leon, 2019.
+ * Copyright (C) Casainho, Leon, MSpider65 2020.
  *
  * Released under the GPL License, Version 3
  */
@@ -18,8 +18,6 @@
 
 
 volatile uint16_t ui16_adc_pedal_torque_offset = 100;
-
-static void adc_trigger (void);
 
 void adc_init (void)
 {
