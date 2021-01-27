@@ -12,7 +12,7 @@
 
 //#define DEBUG_UART
 
-#define FW_VERSION 3
+#define FW_VERSION 4
 
 // motor 
 #define PWM_CYCLES_COUNTER_MAX                                    3125    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 64 us = 3125

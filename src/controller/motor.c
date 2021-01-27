@@ -443,18 +443,13 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     ui8_adc_motor_phase_current = 0;
   }
 
-
-  /****************************************************************************/
-  
-  
   // trigger ADC conversion of all channels (scan conversion, buffered)
   ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
   ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
   ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
 
 
-  /****************************************************************************/
-  
+  ****************************************************************************/
   
   // read hall sensor signals and:
   // - find the motor rotor absolute angle
@@ -767,17 +762,14 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   // phase A
   TIM1->CCR1H = (uint8_t) (ui8_phase_a_voltage >> 7);
   TIM1->CCR1L = (uint8_t) (ui8_phase_a_voltage << 1);
-  
-  
-  
+
   /****************************************************************************/
-  
-  
   
   static uint16_t ui16_cadence_sensor_ticks_counter;
   static uint16_t ui16_cadence_sensor_ticks_counter_min;
   static uint8_t ui8_cadence_sensor_ticks_counter_started;
   static uint8_t ui8_cadence_sensor_pin_state_old;
+  static uint8_t ui8_pedals_rotate_backwards = 0;
   
   // check cadence sensor pins state
   volatile uint8_t ui8_cadence_sensor_pin_1_state = PAS2__PORT->IDR & PAS2__PIN; // PAS2__PIN is leading
@@ -788,6 +780,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   {
     // update old cadence sensor pin state
     ui8_cadence_sensor_pin_state_old = ui8_cadence_sensor_pin_1_state;
+
+    // Check if pedals rotate backwards
+    ui8_pedals_rotate_backwards = (ui8_cadence_sensor_pin_1_state == ui8_cadence_sensor_pin_2_state);
 
     // increment crank revolutions counter
     if (ui8_cadence_sensor_pin_1_state && !ui8_cadence_sensor_pin_2_state)
@@ -816,7 +811,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
           {
             // check if cadence sensor ticks counter is out of bounds and also check direction of rotation
             if ((ui16_cadence_sensor_ticks_counter < CADENCE_SENSOR_TICKS_COUNTER_MAX) || 
-                (ui8_cadence_sensor_pin_2_state != 0))
+                    ui8_pedals_rotate_backwards)
             {
               // reset variables
               ui16_cadence_sensor_ticks = 0;
@@ -845,8 +840,11 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         #define CADENCE_SENSOR_ADVANCED_MODE_SCHMITT_TRIGGER_THRESHOLD    500   // software based Schmitt trigger to stop motor jitter when at resolution limits
         
         // set the ticks counter limit depending on current wheel speed and pin state
-        if (ui8_cadence_sensor_pin_1_state) { ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_high; }
-        else { ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_low; }
+        if (ui8_cadence_sensor_pin_1_state) {
+            ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_high;
+        } else {
+            ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_low;
+        }
         
         // check if first transition
         if (!ui8_cadence_sensor_ticks_counter_started)
@@ -858,7 +856,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         {
           // check if cadence sensor ticks counter is out of bounds and also check direction of rotation
           if ((ui16_cadence_sensor_ticks_counter < CADENCE_SENSOR_ADVANCED_MODE_TICKS_COUNTER_MAX) || 
-              (ui8_cadence_sensor_pin_1_state == ui8_cadence_sensor_pin_2_state))
+                  ui8_pedals_rotate_backwards)
           {
             // reset variables
             ui16_cadence_sensor_ticks = 0;
@@ -919,7 +917,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   }
   
   // increment and also limit the ticks counter
-  if ((ui8_cadence_sensor_ticks_counter_started) && (ui16_cadence_sensor_ticks_counter < ui16_cadence_sensor_ticks_counter_min)) 
+  if ((ui8_cadence_sensor_ticks_counter_started) &&
+          (ui16_cadence_sensor_ticks_counter < ui16_cadence_sensor_ticks_counter_min) &&
+          !ui8_pedals_rotate_backwards)
   {
     ++ui16_cadence_sensor_ticks_counter;
   }
@@ -979,12 +979,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   }
   
   // increment and also limit the ticks counter
-  if ((ui8_wheel_speed_sensor_ticks_counter_started) && (ui16_wheel_speed_sensor_ticks_counter < WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN))
-  {
+  if (ui8_wheel_speed_sensor_ticks_counter_started)
+      if (ui16_wheel_speed_sensor_ticks_counter < WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN) {
     ++ui16_wheel_speed_sensor_ticks_counter;
-  }
-  else
-  {
+      } else {
     // reset variables
     ui16_wheel_speed_sensor_ticks = 0;
     ui16_wheel_speed_sensor_ticks_counter = 0;
