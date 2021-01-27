@@ -38,6 +38,8 @@ void adc_init (void)
             DISABLE);
 
   ADC1_ScanModeCmd(ENABLE);		   // enable scan mode
+  //ADC1_DataBufferCmd(ENABLE);
+  //ADC1->CR3 |= ADC1_CR3_DBUF;
   ADC1_Cmd(ENABLE);
   ADC1_ClearFlag(ADC1_FLAG_EOC);
   ADC1_StartConversion();          // start ADC1 conversion

@@ -348,14 +348,15 @@ uint8_t ui8_sin_table[SIN_TABLE_LEN] =
     127
 };
 
+// motor variables
 uint16_t ui16_PWM_cycles_counter = 1;
 uint16_t ui16_PWM_cycles_counter_6 = 1;
 uint16_t ui16_PWM_cycles_counter_total = 0xffff;
 uint16_t ui16_max_motor_speed_erps = MOTOR_OVER_SPEED_ERPS;
-static volatile uint16_t ui16_motor_speed_erps = 0;
 uint8_t ui8_motor_commutation_type = BLOCK_COMMUTATION;
 uint8_t ui8_hall_sensors_state = 0;
 uint8_t ui8_half_erps_flag = 0;
+volatile uint16_t ui16_motor_speed_erps = 0;
 
 
 // power variables
@@ -377,9 +378,14 @@ volatile uint8_t ui8_brake_state = 0;
 
 
 // cadence sensor
+#define NO_PAS_REF 5
 volatile uint16_t ui16_cadence_sensor_ticks = 0;
 volatile uint32_t ui32_crank_revolutions_x20 = 0;
 static uint16_t ui16_cadence_sensor_ticks_counter_min = CADENCE_SENSOR_CALC_COUNTER_MIN;
+static uint8_t ui8_pas_state_old = 4;
+static uint16_t ui16_cadence_calc_counter, ui16_cadence_stop_counter;
+static uint8_t ui8_cadence_calc_ref_state = NO_PAS_REF;
+static uint8_t ui8_pas_old_valid_state[4] = {0x01,0x03,0x00,0x02};
 
 
 // wheel speed sensor
@@ -421,6 +427,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
   
   
   // read battery current ADC value | should happen at middle of the PWM duty_cycle
+  //ADC1_DataBufferCmd(DISABLE);
+  //ADC1->CR3 &= (uint8_t)(~ADC1_CR3_DBUF); // disable buffering
   ADC1->CR2 &= (uint8_t)(~ADC1_CR2_SCAN);   // disable scan mode
   ADC1->CSR = 0x05;                         // clear EOC flag first (select channel 5)
   ADC1->CR1 |= ADC1_CR1_ADON;               // start ADC1 conversion
@@ -591,6 +599,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     /* moved from function beginning to avoid some wasted time */
     while (!(ADC1->CSR & ADC1_FLAG_EOC));     // wait for end of conversion
 
+    // single conversion: do not use bufferd value
+    // 17.5 A ???
+    //ui8_controller_adc_battery_current = ui16_adc_battery_current = ((*(uint8_t*)(ADC1->DRH)) << 2) | (*(uint8_t*)(ADC1->DRL));
     ui8_controller_adc_battery_current = ui16_adc_battery_current = UI16_ADC_10_BIT_BATTERY_CURRENT;
 
     // calculate motor phase current ADC value
@@ -605,6 +616,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     
     // trigger ADC conversion of all channels (scan conversion, buffered)
     ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
+    //ADC1_DataBufferCmd(ENABLE);
+    //ADC1->CR3 |= ADC1_CR3_DBUF;   // enable buffering
     ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
     ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
     
@@ -766,47 +779,53 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
 
 	/*
-	* ui8_pas_state: PAS1=bit0 and PAS2=bit1
+	* - New pedal start/stop detection Algorithm (by MSpider65) -
+	*
+	* Pedal start/stop detection uses both transitions of both PAS sensors
+	* ui8_pas_state stores the PAS1 and PAS2 state: bit0=PAS1,  bit1=PAS2
 	* Pedal forward ui8_pas_state sequence is: 0x01 -> 0x00 -> 0x02 -> 0x03 -> 0x01
-	* Cadence calculated on 0x00 -> 0x02 transition
-	* Other transitions are used to detect movement (cadence set to 5RPM if previously stopped) -> three times faster startup detection
-	* Every transition resets the stop detection counter. -> three times faster stop detection
+	* After a stop, the first forward transition is taken as reference transition
+	* Following forward transition sets the cadence to 7RPM for immediate startup
+	* Then, starting form the second reference transition, the cadence is calculated based on counter value
+    * All transitions resets the stop detection counter (much faster stop detection):
 	*/
 
-	#define CADENCE_TICKS_5RPM 9375
+    // ui16_cadence_sensor_ticks value for startup
+	#define CADENCE_TICKS_STARTUP 6250 // about 7-8 RPM
     // software based Schmitt trigger to stop motor jitter when at resolution limits
 	#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD    350
-      
-	static uint8_t ui8_pas_state_old = 4;
-	static uint16_t ui16_cadence_calc_counter, ui16_cadence_stop_counter;
-	static uint8_t ui8_cadence_calc_counter_started;
-	static uint8_t ui8_pas_old_valid_state[4] = {0x01,0x03,0x00,0x02};
       
 	uint8_t ui8_pas_state = (PAS1__PORT->IDR & PAS1__PIN) | ((PAS2__PORT->IDR & PAS2__PIN) >> 6);
           
 	if (ui8_pas_state != ui8_pas_state_old) {
 		if (ui8_pas_state_old != ui8_pas_old_valid_state[ui8_pas_state]) {
-			// pedals rotates backward or too fast transition
+			// wrong state sequence: backward rotation
               ui16_cadence_sensor_ticks = 0;
-			ui8_cadence_calc_counter_started = 0;
-		} else if (ui8_pas_state != 0x02) {
-			if (ui16_cadence_sensor_ticks == 0)
-				ui16_cadence_sensor_ticks = CADENCE_TICKS_5RPM;
-		} else {
-			// main transition 0x00 -> 0x02 (calculation of the correct cadence)
-			ui32_crank_revolutions_x20++;
+			ui8_cadence_calc_ref_state = NO_PAS_REF;
+			goto skip_cadence;
+		}
+
 			ui16_cadence_sensor_ticks_counter_min = ui16_cadence_sensor_ticks_counter_min_speed_adjusted;
               
-			if (ui8_cadence_calc_counter_started) {
+		if (ui8_pas_state == ui8_cadence_calc_ref_state) {
+			// ui16_cadence_calc_counter is valid for cadence calculation
 				ui16_cadence_sensor_ticks = ui16_cadence_calc_counter;
+			ui16_cadence_calc_counter = 0;
               // software based Schmitt trigger to stop motor jitter when at resolution limits
               ui16_cadence_sensor_ticks_counter_min += CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD;
-        } else {
-				ui8_cadence_calc_counter_started = 1;
-				ui16_cadence_sensor_ticks = CADENCE_TICKS_5RPM;
-        }
+		} else if (ui8_cadence_calc_ref_state == NO_PAS_REF) {
+			// this is the new reference state for cadence calculation
+			ui8_cadence_calc_ref_state = ui8_pas_state;
 			ui16_cadence_calc_counter = 0;
+		} else if (ui16_cadence_sensor_ticks == 0) {
+			// Waiting the second reference transition: set the cadence to 7 RPM for immediate start
+			ui16_cadence_sensor_ticks = CADENCE_TICKS_STARTUP;
     }
+		// Reference state for crank revolution counter increment
+		if (ui8_pas_state == 0)
+			ui32_crank_revolutions_x20++;
+
+		skip_cadence:
 		// reset the counter used to detect pedal stop
 		ui16_cadence_stop_counter = 0;
 		// save current PAS state
@@ -817,8 +836,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 		// pedals stop detected
     ui16_cadence_sensor_ticks = 0;
 		ui16_cadence_stop_counter = 0;
-		ui8_cadence_calc_counter_started = 0;
-	} else if (ui8_cadence_calc_counter_started) {
+		ui8_cadence_calc_ref_state = NO_PAS_REF;
+	} else if (ui8_cadence_calc_ref_state != NO_PAS_REF) {
 		// increment cadence tick counter
 		++ui16_cadence_calc_counter;
   }
@@ -905,12 +924,6 @@ void hall_sensor_init(void)
 }
 
 
-uint16_t ui16_motor_get_motor_speed_erps(void)
-{
-  return ui16_motor_speed_erps;
-}
-
-
 void read_battery_voltage(void)
 {
   #define READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT   2
@@ -929,10 +942,6 @@ void read_battery_voltage(void)
   ui16_adc_battery_voltage_accumulated -= ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
   ui16_adc_battery_voltage_accumulated += ui16_adc_read_battery_voltage_10b();
   ui16_adc_battery_voltage_filtered = ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-  
-  // prototype filter, do not use, not tuned, ask Leon
-  /*   ui16_adc_battery_voltage_filtered = (ui16_adc_read_battery_voltage_10b() + ui16_adc_battery_voltage_accumulated) >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-  ui16_adc_battery_voltage_accumulated = ui16_adc_battery_voltage_filtered; */
 }
 
 

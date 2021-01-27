@@ -65,7 +65,7 @@ static uint8_t ui8_pedal_cadence_RPM = 0;
 
 
 // torque sensor
-volatile uint16_t ui16_adc_pedal_torque = 0;
+static uint16_t ui16_adc_pedal_torque = 0;
 static uint16_t   ui16_adc_pedal_torque_delta = 0;
 static uint16_t   ui16_pedal_torque_x100 = 0;
 
@@ -162,6 +162,7 @@ static void apply_speed_limit();
 
 void ebike_app_controller (void)
 { 
+  static uint8_t ui8_counter;
   calc_wheel_speed();               // calculate the wheel speed
   calc_cadence();                   // calculate the cadence and set limits from wheel speed
   
@@ -172,6 +173,8 @@ void ebike_app_controller (void)
   check_system();                   // check if there are any errors for motor control 
   check_brakes();                   // check if brakes are enabled for motor control
   
+  // send/receive data every 4 cycles (25ms * 4)
+  if (!(ui8_counter++ & 0x03))
   communications_controller();      // get data to use for motor control and also send new data
   ebike_control_lights();           // use received data and sensor input to control external lights
   ebike_control_motor();            // use received data and sensor input to control motor
@@ -228,7 +231,7 @@ static void ebike_control_motor (void)
   
   // check if to enable the motor
   if ((!ui8_motor_enabled) &&
-      (ui16_motor_get_motor_speed_erps() == 0) && // only enable motor if stopped, else something bad can happen due to high currents/regen or similar
+      (ui16_motor_speed_erps == 0) && // only enable motor if stopped, else something bad can happen due to high currents/regen or similar
       (ui8_adc_battery_current_target) &&
       (!ui8_brakes_engaged))
   {
@@ -239,7 +242,7 @@ static void ebike_control_motor (void)
 
   // check if to disable the motor
   if ((ui8_motor_enabled) &&
-      (ui16_motor_get_motor_speed_erps() == 0) &&
+      (ui16_motor_speed_erps == 0) &&
       (!ui8_adc_battery_current_target) &&
       (!ui8_g_duty_cycle))
   {
@@ -712,15 +715,14 @@ static void apply_speed_limit()
 
 
 static void calc_wheel_speed(void) {
+	// calc wheel speed (km/h*10)
+	if (ui16_wheel_speed_sensor_ticks) {
   uint32_t ui32_tmp = ui16_wheel_speed_sensor_ticks;
-  // calc wheel speed in km/h
-  if (ui32_tmp) {
-    ui32_tmp = (((uint32_t)m_configuration_variables.ui16_wheel_perimeter * 5625L) / ui32_tmp)/10L; //(15625 * (3600 /(1000*1000)) * 10) = 562.5
+		// rps = PWM_CYCLES_SECOND / ui16_wheel_speed_sensor_ticks (rev/sec)
+		// km/h*10 = rps * ui16_wheel_perimeter * ((3600 / (1000 * 1000)) * 10)
+		//(15625 * (3600 /(1000*1000)) * 10) = 562.5 = 4500 / 8
+		ui32_tmp = ((uint32_t)(m_configuration_variables.ui16_wheel_perimeter) * 4500UL) / (ui32_tmp << 3);
     ui16_wheel_speed_x10 = ui32_tmp;
-    /*
-    float f_wheel_speed_x10 = (float) PWM_CYCLES_SECOND / ui16_wheel_speed_sensor_ticks; // rps
-    ui16_wheel_speed_x10 = f_wheel_speed_x10 * m_configuration_variables.ui16_wheel_perimeter * 0.036; // rps * millimeters per second * ((3600 / (1000 * 1000)) * 10) kms per hour * 10
-    */
   } else {
     ui16_wheel_speed_x10 = 0;
   }
@@ -853,7 +855,7 @@ static void check_system()
   else
   {
     // if battery current is over the current threshold and the motor ERPS is below threshold start setting motor blocked error code
-    if ((ui8_battery_current_filtered_x10 > MOTOR_BLOCKED_BATTERY_CURRENT_THRESHOLD_X10) && (ui16_motor_get_motor_speed_erps() < MOTOR_BLOCKED_ERPS_THRESHOLD))
+    if ((ui8_battery_current_filtered_x10 > MOTOR_BLOCKED_BATTERY_CURRENT_THRESHOLD_X10) && (ui16_motor_speed_erps < MOTOR_BLOCKED_ERPS_THRESHOLD))
     {
       // increment motor blocked counter with 100 milliseconds
       ++ui8_motor_blocked_counter;
@@ -1188,8 +1190,6 @@ static uint8_t no_rx_counter = 0;
 
 static void communications_controller (void)
 {
-  #ifndef DEBUG_UART
-
   // Reset to 0 when a valid message from the LCD is received
   no_rx_counter++;
   uart_receive_package ();
@@ -1199,8 +1199,6 @@ static void communications_controller (void)
   // reset riding mode if connection with the LCD is lost for more than 0,3 sec (safety)
   if (no_rx_counter > 3)
 	ui8_riding_mode = OFF_MODE;
-
-  #endif
 }
 
 static void uart_receive_package(void)
@@ -1375,9 +1373,8 @@ static void uart_send_package(void)
     ui8_tx_buffer[0] = 0x43;
 
     // battery voltage filtered x1000
-    ui16_temp = ui16_battery_voltage_filtered_x1000;
-    ui8_tx_buffer[1] = (uint8_t) (ui16_temp & 0xff);;
-    ui8_tx_buffer[2] = (uint8_t) (ui16_temp >> 8);
+    ui8_tx_buffer[1] = (uint8_t) (ui16_battery_voltage_filtered_x1000 & 0xff);;
+    ui8_tx_buffer[2] = (uint8_t) (ui16_battery_voltage_filtered_x1000 >> 8);
 
     // battery current filtered x10
     ui8_tx_buffer[3] = ui8_battery_current_filtered_x10;
@@ -1408,9 +1405,8 @@ static void uart_send_package(void)
     }
 
     // ADC torque sensor
-    ui16_temp = ui16_adc_pedal_torque;
-    ui8_tx_buffer[9] = (uint8_t) (ui16_temp & 0xff);
-    ui8_tx_buffer[10] = (uint8_t) (ui16_temp >> 8);
+    ui8_tx_buffer[9] = (uint8_t) (ui16_adc_pedal_torque & 0xff);
+    ui8_tx_buffer[10] = (uint8_t) (ui16_adc_pedal_torque >> 8);
 
     // pedal cadence
     ui8_tx_buffer[11] = ui8_pedal_cadence_RPM;
@@ -1419,7 +1415,7 @@ static void uart_send_package(void)
     ui8_tx_buffer[12] = ui8_g_duty_cycle;
 
     // motor speed in ERPS
-    ui16_temp = ui16_motor_get_motor_speed_erps();
+    ui16_temp = ui16_motor_speed_erps;
     ui8_tx_buffer[13] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[14] = (uint8_t) (ui16_temp >> 8);
 

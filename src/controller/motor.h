@@ -28,6 +28,9 @@ extern volatile uint8_t ui8_g_duty_cycle;
 extern volatile uint8_t ui8_controller_duty_cycle_target;
 extern volatile uint8_t ui8_g_foc_angle;
 
+// motor erps
+extern volatile uint16_t ui16_motor_speed_erps;
+
 // brakes
 extern volatile uint8_t ui8_brake_state;
 
@@ -45,9 +48,6 @@ void motor_enable_PWM (void);
 void motor_disable_PWM (void);
 void motor_enable_pwm(void);
 void motor_disable_pwm(void);
-uint16_t ui16_motor_get_motor_speed_erps (void);
 void motor_controller (void);
-
-uint8_t motor_get_adc_battery_current_filtered_10b (void);
 
 #endif /* _MOTOR_H_ */
