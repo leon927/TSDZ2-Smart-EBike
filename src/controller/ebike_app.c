@@ -896,13 +896,22 @@ static void get_battery_current_filtered(void)
   ui8_battery_current_filtered_x10 = ((uint16_t) ui8_adc_battery_current_filtered * BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100) / 10;
 }
 
-
+#define TOFFSET_CYCLES 10
+static uint8_t toffset_cycle_counter = 0;
 
 static void get_pedal_torque(void)
 {
-  // get adc pedal torque
-  ui16_adc_pedal_torque = UI16_ADC_10_BIT_TORQUE_SENSOR;
-  
+  if (toffset_cycle_counter < TOFFSET_CYCLES) {
+	  uint16_t ui16_tmp = UI16_ADC_10_BIT_TORQUE_SENSOR;
+	  ui16_adc_pedal_torque_offset = filter(ui16_tmp, ui16_adc_pedal_torque_offset, 25);
+	  toffset_cycle_counter++;
+	  if (toffset_cycle_counter == TOFFSET_CYCLES)
+		  ui16_adc_pedal_torque_offset += ADC_TORQUE_SENSOR_CALIBRATION_OFFSET;
+	  ui16_adc_pedal_torque = ui16_adc_pedal_torque_offset;
+  } else {
+	// get adc pedal torque
+	ui16_adc_pedal_torque = UI16_ADC_10_BIT_TORQUE_SENSOR;
+  }
   // calculate the delta value of adc pedal torque and the adc pedal torque offset from calibration
   if (ui16_adc_pedal_torque > ui16_adc_pedal_torque_offset)
   {
