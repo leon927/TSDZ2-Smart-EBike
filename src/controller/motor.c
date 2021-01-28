@@ -45,7 +45,6 @@ uint8_t ui8_sin_table[SIN_TABLE_LEN] = { 3, 6, 9, 12, 16, 19, 22, 25, 28, 31, 34
 uint16_t ui16_PWM_cycles_counter = 1;
 uint16_t ui16_PWM_cycles_counter_6 = 1;
 uint16_t ui16_PWM_cycles_counter_total = 0xffff;
-uint16_t ui16_max_motor_speed_erps = MOTOR_OVER_SPEED_ERPS;
 uint8_t ui8_motor_commutation_type = BLOCK_COMMUTATION;
 uint8_t ui8_half_erps_flag = 0;
 volatile uint16_t ui16_motor_speed_erps = 0;
@@ -55,8 +54,8 @@ volatile uint16_t ui16_controller_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYC
 volatile uint16_t ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
 volatile uint16_t ui16_adc_battery_voltage_filtered = 0;
 volatile uint8_t ui8_adc_battery_voltage_cut_off = 0xff;
-volatile uint16_t ui16_adc_battery_current = 0;
 volatile uint8_t ui8_adc_battery_current_filtered = 0;
+volatile uint16_t ui16_adc_battery_current = 0;
 volatile uint8_t ui8_controller_adc_battery_current = 0;
 volatile uint8_t ui8_controller_adc_battery_current_target = 0;
 volatile uint8_t ui8_g_duty_cycle = 0;
@@ -96,10 +95,14 @@ void motor_controller(void) {
 // Hall sensor B positivie to negative transition | BEMF phase A at max value / top of sinewave
 // Hall sensor C positive to negative transition | BEMF phase C at max value / top of sinewave
 
-#ifdef TIM1_IRQTIME_DEBUG
-volatile uint16_t ui16_cnt_start;
-volatile uint16_t ui16_cnt_mid;
-volatile uint16_t ui16_cnt_end;
+#ifdef PWM_TIME_DEBUG
+volatile uint16_t ui16_pwm_cnt_start;
+volatile uint16_t ui16_pwm_cnt_mid;
+volatile uint16_t ui16_pwm_cnt_end;
+#endif
+
+#ifdef MAIN_TIME_DEBUG
+extern volatile uint8_t ui8_main_time;
 #endif
 
 // runs every 64us (PWM frequency)
@@ -114,22 +117,22 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     uint8_t ui8_temp;
     uint16_t ui16_value;
 
-#ifdef TIM1_IRQTIME_DEBUG
-    /*
-    ui8_temp = TIM1->CR1;
-    ui16_cnt_start = ((uint16_t)TIM1->CNTRH << 8);
-    ui16_cnt_start =  (uint16_t)(ui16_cnt_start | (uint16_t)(TIM1->CNTRL));
-    if (ui8_temp & 0x10)
-        ui16_cnt_start |= 0x8000;
-    */
+#ifdef PWM_TIME_DEBUG
+    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+    // read first TIM1->CNTRH then TIM1->CNTRL
+    // TIM1->CR1 & 0x10 contains counter direction (0=up, 1=down)
     __asm
         ld  a, 0x5250
-        and a, #0x10
-        or  a, 0x525e
-        ld  _ui16_cnt_start+0, a
-        mov  _ui16_cnt_start+1, 0x525f
+        and a, #0x10 // counter direction
+        or  a, 0x525e // TIM1->CNTRH
+        ld  _ui16_pwm_cnt_start+0, a      // ui16_pwm_cnt_start MSB = TIM1->CNTRH | direction
+        mov _ui16_pwm_cnt_start+1, 0x525f // ui16_pwm_cnt_start LSB = TIM1->CNTRL
     __endasm;
+    #endif
+#endif
 
+#ifdef MAIN_TIME_DEBUG
+    ui8_main_time++;
     #endif
 
     /****************************************************************************/
@@ -174,7 +177,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                 ui16_PWM_cycles_counter_total = ui16_PWM_cycles_counter;
                 ui16_PWM_cycles_counter = 1;
 
-                // this division takes 111 us if PWM_CYCLES_SECOND is a float. But with cast, (uint16_t) PWM_CYCLES_SECOND, it only takes 4.4 us. Verified on 2017.11.20
                 // avoid division by 0
                 if (ui16_PWM_cycles_counter_total > 0) {
                     ui16_motor_speed_erps = ((uint16_t) PWM_CYCLES_SECOND) / ui16_PWM_cycles_counter_total;
@@ -232,8 +234,8 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if (ui16_PWM_cycles_counter < PWM_CYCLES_COUNTER_MAX) {
         ui16_PWM_cycles_counter++;
         ui16_PWM_cycles_counter_6++;
-    } else // happens when motor is stopped or near zero speed
-    {
+    } else {
+        // motor is stopped or near zero speed
         ui16_PWM_cycles_counter = 1; // don't put to 0 to avoid 0 divisions
         ui16_PWM_cycles_counter_6 = 1;
         ui8_half_erps_flag = 0;
@@ -246,6 +248,59 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     /****************************************************************************/
 
+    /* Read battery current */
+    // wait for end of conversion
+    while (!(ADC1->CSR & ADC1_FLAG_EOC))
+        ;
+
+    // Single conversion: do not use bufferd value !
+    // Left alignment: Read MSB first then read LSB !
+    /*
+    ui8_controller_adc_battery_current = ADC1->DRH << 2;
+    ui8_controller_adc_battery_current |= (ADC1->DRL & 0x03);
+    */
+    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+    __asm
+        mov _ui8_controller_adc_battery_current, 0x5404 // ADC1->DRH
+        sll _ui8_controller_adc_battery_current+0       // shift left
+        sll _ui8_controller_adc_battery_current+0       // shift left
+        ld  a, 0x5405                                   // ADC1->DRL
+        and a, #0x03                                    // AND 0x03
+        or a, _ui8_controller_adc_battery_current       // |= ADC1->DRL
+        ld  _ui8_controller_adc_battery_current+0, a
+        ld  _ui16_adc_battery_current+1, a
+        clr _ui16_adc_battery_current+0
+    __endasm;
+    #endif
+
+
+    // trigger ADC conversion of all channels (scan conversion, buffered)
+    ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
+    ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
+    ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
+
+#ifdef PWM_TIME_DEBUG
+    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+    __asm
+        ld  a, 0x5250
+        and a, #0x10 // counter direction
+        or  a, 0x525e // TIM1->CNTRH
+        ld  _ui16_pwm_cnt_mid+0, a      // ui16_pwm_cnt_mid MSB = TIM1->CNTRH | direction
+        mov _ui16_pwm_cnt_mid+1, 0x525f // ui16_cnt_mid LSB = TIM1->CNTRL
+    __endasm;
+
+#endif
+#endif
+
+
+    // calculate motor phase current ADC value
+    if (ui8_g_duty_cycle > 0)
+        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
+    else
+        ui8_adc_motor_phase_current = 0;
+
+    /****************************************************************************/
+
     // - calc interpolation angle and sinewave table index
 #define DO_INTERPOLATION 1 // may be useful to disable interpolation when debugging
 #if DO_INTERPOLATION == 1
@@ -253,7 +308,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if (ui8_motor_commutation_type == SINEWAVE_INTERPOLATION_60_DEGREES) {
         // division by 0: ui16_PWM_cycles_counter_total should never be 0
         // TODO: verifiy if (ui16_PWM_cycles_counter_6 << 8) do not overflow
-        uint8_t ui8_interpolation_angle = (ui16_PWM_cycles_counter_6 << 8) / ui16_PWM_cycles_counter_total; // this operations takes 4.4us
+        uint8_t ui8_interpolation_angle = (ui16_PWM_cycles_counter_6 << 8) / ui16_PWM_cycles_counter_total;
         uint8_t ui8_motor_rotor_angle = ui8_motor_rotor_absolute_angle + ui8_interpolation_angle;
         ui8_svm_table_index = ui8_motor_rotor_angle + ui8_g_foc_angle;
     } else
@@ -264,64 +319,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     // we need to put phase voltage 90 degrees ahead of rotor position, to get current 90 degrees ahead and have max torque per amp
     ui8_svm_table_index -= 63;
-
-    /****************************************************************************/
-
-    /* Read battery current */
-    // wait for end of conversion
-    while (!(ADC1->CSR & ADC1_FLAG_EOC))
-        ;
-
-    // Single conversion: do not use bufferd value !
-    // Left alignment: Read MSB first then read LSB !
-    __asm
-        mov _ui8_controller_adc_battery_current, 0x5404
-        sll _ui8_controller_adc_battery_current+0
-        sll _ui8_controller_adc_battery_current+0
-        ld  a, 0x5405
-        and a, #0x03
-        or a, _ui8_controller_adc_battery_current
-        ld  _ui8_controller_adc_battery_current+0, a
-        ld  _ui16_adc_battery_current+1, a
-        clr _ui16_adc_battery_current+0
-    __endasm;
-
-    /* _ASM_
-    ui16_adc_battery_current = ADC1->DRH;
-    //ui8_controller_adc_battery_current = ADC1->DRL;
-    ui16_adc_battery_current = (ui16_adc_battery_current << 2) | (uint16_t)((ADC1->DRL & 0x03));
-    ui8_controller_adc_battery_current = ui16_adc_battery_current;
-    */
-
-    // trigger ADC conversion of all channels (scan conversion, buffered)
-    ADC1->CR2 |= ADC1_CR2_SCAN;     // enable scan mode
-    ADC1->CSR = 0x07;               // clear EOC flag first (select channel 7)
-    ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
-
-#ifdef TIM1_IRQTIME_DEBUG
-    /*
-    ui8_temp = TIM1->CR1;
-    ui16_cnt_mid = ((uint16_t)TIM1->CNTRH << 8);
-    ui16_cnt_mid =  (uint16_t)(ui16_cnt_mid | (uint16_t)(TIM1->CNTRL));
-    if (ui8_temp & 0x10)
-        ui16_cnt_mid |= 0x8000;
-    */
-    __asm
-        ld  a, 0x5250
-        and a, #0x10
-        or  a, 0x525e
-        ld  _ui16_cnt_mid+0, a
-        mov _ui16_cnt_mid+1, 0x525f
-    __endasm;
-
-#endif
-
-
-    // calculate motor phase current ADC value
-    if (ui8_g_duty_cycle > 0)
-        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
-    else
-        ui8_adc_motor_phase_current = 0;
 
     /****************************************************************************/
 
@@ -358,8 +355,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if ((ui8_g_duty_cycle > ui8_controller_duty_cycle_target)
             || (ui8_controller_adc_battery_current > ui8_controller_adc_battery_current_target)
             || (ui8_adc_motor_phase_current > ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX)
-            || (ui16_motor_speed_erps > ui16_max_motor_speed_erps)
-            || (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off) || (ui8_brake_state)) {
+            || (ui16_motor_speed_erps > MOTOR_OVER_SPEED_ERPS)
+            || (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off)
+            || (ui8_brake_state)) {
         // reset duty cycle ramp up counter (filter)
         ui16_counter_duty_cycle_ramp_up = 0;
 
@@ -459,11 +457,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
      * All transitions resets the stop detection counter (much faster stop detection):
      */
 
-    // ui16_cadence_sensor_ticks value for startup
-#define CADENCE_TICKS_STARTUP 6250 // about 7-8 RPM
-    // software based Schmitt trigger to stop motor jitter when at resolution limits
-#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD    350
-
     uint8_t ui8_pas_state = (PAS1__PORT->IDR & PAS1__PIN) | ((PAS2__PORT->IDR & PAS2__PIN) >> 6);
 
     if (ui8_pas_state != ui8_pas_state_old) {
@@ -558,21 +551,16 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             ui8_wheel_speed_sensor_ticks_counter_started = 0;
         }
 
-#ifdef TIM1_IRQTIME_DEBUG
-    /*
-    ui8_temp = TIM1->CR1;
-    ui16_cnt_end = ((uint16_t)TIM1->CNTRH << 8);
-    ui16_cnt_end = (uint16_t)(ui16_cnt_end | (uint16_t)(TIM1->CNTRL));
-    if (ui8_temp & 0x10)
-        ui16_cnt_end |= 0x8000;
-    */
+#ifdef PWM_TIME_DEBUG
+    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
     __asm
         ld  a, 0x5250
-        and a, #0x10
-        or  a, 0x525e
-        ld  _ui16_cnt_end+0, a
-        mov  _ui16_cnt_end+1, 0x525f
+        and a, #0x10 // counter direction
+        or  a, 0x525e // TIM1->CNTRH
+        ld  _ui16_pwm_cnt_end+0, a      // ui16_pwm_cnt_end MSB = TIM1->CNTRH | direction
+        mov _ui16_pwm_cnt_end+1, 0x525f // ui16_pwm_cnt_end LSB = TIM1->CNTRL
     __endasm;
+#endif
 #endif
 
     // clears the TIM1 interrupt TIM1_IT_UPDATE pending bit
@@ -625,12 +613,12 @@ void read_battery_current(void) {
     ui8_adc_battery_current_filtered = ui16_adc_battery_current_accumulated >> READ_BATTERY_CURRENT_FILTER_COEFFICIENT;
 }
 
-/*
 void calc_foc_angle(void) {
+    static uint16_t ui16_foc_angle_accumulated;
     uint16_t ui16_temp;
     uint16_t ui16_e_phase_voltage;
     uint16_t ui16_i_phase_current_x2;
-    uint8_t  ui8_l_x1048576;
+    uint16_t ui16_l_x1048576;
     uint32_t ui32_w_angular_velocity_x16;
     uint16_t ui16_iwl_128;
 
@@ -645,19 +633,21 @@ void calc_foc_angle(void) {
     // angle between phase current and rotor magnetic flux (BEMF) is kept at 0 (max torque per amp)
 
     // calc E phase voltage
-    ui16_e_phase_voltage = (uint16_t)((uint32_t)((uint8_t)BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X512 * ui8_g_duty_cycle
-            * ui16_adc_battery_voltage_filtered) >> 17);
+    ui16_temp = (uint8_t)BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X512 * ui8_g_duty_cycle;
+    ui16_e_phase_voltage = ((uint32_t)ui16_adc_battery_voltage_filtered * ui16_temp) >> 17;
 
     // calc I phase current
     if (ui8_g_duty_cycle > 10) {
         ui16_temp = ui8_adc_battery_current_filtered * (uint8_t)BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X512;
         ui16_i_phase_current_x2 = ui16_temp / ui8_g_duty_cycle;
     } else {
-        ui16_i_phase_current_x2 = 0;
+        ui8_g_foc_angle = 0;
+        goto skip_foc;
     }
 
     // calc W angular velocity: erps * 6.3
-    ui32_w_angular_velocity_x16 = ui16_motor_speed_erps * 101;
+    // multiplication overflow if ui16_motor_speed_erps > 648 (65535/101) -> cast ui16_motor_speed_erps to uint32_t !!!!
+    ui32_w_angular_velocity_x16 = (uint32_t)ui16_motor_speed_erps * 101U;
 
     // ---------------------------------------------------------------------------------------------------------------------
     // NOTE: EXPERIMENTAL and may not be good for the brushless motor inside TSDZ2
@@ -681,45 +671,31 @@ void calc_foc_angle(void) {
 
     switch (p_configuration_variables->ui8_motor_type) {
     case 0:
-        ui8_l_x1048576 = 142; // 48 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
+    case 2:
+        ui16_l_x1048576 = 142; // 48 V motor
         break;
-
-    case 1:
-        ui8_l_x1048576 = 84; // 36 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
-        break;
-
-    case 2: // experimental high cadence mode for 48 volt motor
-        ui8_l_x1048576 = 199;
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS_EXPERIMENTAL;
-        break;
-
-    case 3: // experimental high cadence mode for 36 volt motor
-        ui8_l_x1048576 = 115;
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS_EXPERIMENTAL;
-        break;
-
+        //case 1:
+        //case 3:
     default:
-        ui8_l_x1048576 = 142; // 48 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
+        ui16_l_x1048576 = 80; // 36 V motor
         break;
     }
 
     // calc IwL
-    ui16_iwl_128 = (uint16_t)((uint32_t)(ui16_i_phase_current_x2 * ui8_l_x1048576 * ui32_w_angular_velocity_x16) >> 18);
+    ui16_iwl_128 = ((uint32_t)((uint32_t)ui16_i_phase_current_x2 * ui16_l_x1048576) * ui32_w_angular_velocity_x16 ) >> 18;
 
     // calc FOC angle
     ui8_g_foc_angle = asin_table(ui16_iwl_128 / ui16_e_phase_voltage);
 
+    skip_foc:
     // low pass filter FOC angle
-    static uint16_t ui16_foc_angle_accumulated;
     ui16_foc_angle_accumulated -= ui16_foc_angle_accumulated >> 4;
     ui16_foc_angle_accumulated += ui8_g_foc_angle;
     ui8_g_foc_angle = ui16_foc_angle_accumulated >> 4;
 }
-*/
 
+
+/*
 void calc_foc_angle(void) {
     uint16_t ui16_temp;
     uint16_t ui16_e_phase_voltage;
@@ -775,28 +751,14 @@ void calc_foc_angle(void) {
 
     switch (p_configuration_variables->ui8_motor_type) {
     case 0:
-        ui32_l_x1048576 = 142; // 48 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
-        break;
-
-    case 1:
-        ui32_l_x1048576 = 84; // 36 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
-        break;
-
     case 2: // experimental high cadence mode for 48 volt motor
-        ui32_l_x1048576 = 199;
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS_EXPERIMENTAL;
+            ui32_l_x1048576 = 142; // 48 V motor
         break;
 
-    case 3: // experimental high cadence mode for 36 volt motor
-        ui32_l_x1048576 = 115;
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS_EXPERIMENTAL;
-        break;
-
+        //case 1:
+        //case 3: // experimental high cadence mode for 36 volt motor
     default:
-        ui32_l_x1048576 = 142; // 48 V motor
-        ui16_max_motor_speed_erps = (uint16_t) MOTOR_OVER_SPEED_ERPS;
+            ui32_l_x1048576 = 80; // 36 V motor
         break;
     }
 
@@ -812,6 +774,8 @@ void calc_foc_angle(void) {
     ui16_foc_angle_accumulated += ui8_g_foc_angle;
     ui8_g_foc_angle = ui16_foc_angle_accumulated >> 4;
 }
+*/
+
 
 // calc asin also converts the final result to degrees
 uint8_t asin_table(uint8_t ui8_inverted_angle_x128) {

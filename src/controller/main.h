@@ -11,21 +11,22 @@
 
 
 //#define DEBUG_UART
-#define TIM1_IRQTIME_DEBUG
+//#define PWM_TIME_DEBUG
+//#define MAIN_TIME_DEBUG
 
 #define FW_VERSION 6
 
 // motor 
-#define PWM_CYCLES_COUNTER_MAX                                    3125    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 64 us = 3125
-#define PWM_CYCLES_SECOND                                         15625   // 1 / 64us(PWM period)
+#define PWM_CYCLES_COUNTER_MAX                                    3600U    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 50 us = 4000 (3125 at 15.625KHz)
+#define PWM_CYCLES_SECOND                                         18000U   // 1 / 50us(PWM period)
 #define PWM_DUTY_CYCLE_MAX                                        254
 #define MIDDLE_PWM_DUTY_CYCLE_MAX                                 (PWM_DUTY_CYCLE_MAX / 2)
 
-#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT               160     // 160 -> 160 * 64 us for every duty cycle increment
-#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                   20      // 20 -> 20 * 64 us for every duty cycle increment
+#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT               184     // 160 -> 160 * 64 us for every duty cycle increment
+#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                   23      // 20 -> 20 * 64 us for every duty cycle increment
 
-#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT             40      // 40 -> 40 * 64 us for every duty cycle decrement
-#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN                 8       // 8 -> 8 * 64 us for every duty cycle decrement
+#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT             46      // 40 -> 40 * 64 us for every duty cycle decrement
+#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN                 9       // 8 -> 8 * 64 us for every duty cycle decrement
 
 /*---------------------------------------------------------
   NOTE: regarding duty cycle (PWM) ramping
@@ -56,11 +57,7 @@
   for the lowest battery current possible.
 ---------------------------------------------------------*/
 
-
-
-#define MOTOR_OVER_SPEED_ERPS                                     520     // motor max speed, protection max value | 30 points for the sinewave at max speed
-#define MOTOR_OVER_SPEED_ERPS_EXPERIMENTAL                        700     // experimental motor speed to allow a higher cadence
-
+#define MOTOR_OVER_SPEED_ERPS                                     600     // motor max speed | 30 points for the sinewave at max speed (<PWM_CYCLES_SECOND/30)
 #define MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES           10
 
 /*---------------------------------------------------------
@@ -103,10 +100,12 @@
 
 
 // cadence sensor
-#define CADENCE_SENSOR_NUMBER_MAGNETS                             20
-
-#define CADENCE_SENSOR_CALC_COUNTER_MIN                          3500
-
+#define CADENCE_SENSOR_NUMBER_MAGNETS                           20U
+#define CADENCE_SENSOR_CALC_COUNTER_MIN                         4032  // 3500 at 15.625KHz
+// ui16_cadence_sensor_ticks value for startup
+#define CADENCE_TICKS_STARTUP                                   7200 // about 7-8 RPM (6250 at 15.625KHz)
+// software based Schmitt trigger to stop motor jitter when at resolution limits
+#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD  403  // 350 at 15.625KHz
 
 /*-------------------------------------------------------------------------------
   NOTE: regarding the cadence sensor
@@ -123,10 +122,8 @@
 
 
 // Wheel speed sensor
-#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MAX                      135   // something like 200 m/h with a 6'' wheel
-#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN                      32767 // could be a bigger number but will make for a slow detection of stopped wheel speed
-
-
+#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MAX                      155   // (135 at 15,625KHz) something like 200 m/h with a 6'' wheel
+#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN                      37747 // could be a bigger number but will make for a slow detection of stopped wheel speed
 
 // default values
 #define DEFAULT_VALUE_BATTERY_CURRENT_MAX                         10  // 10 amps
@@ -162,7 +159,7 @@
 
 
 // ADC battery current measurement
-#define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X512                  102
+#define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X512                  80
 #define BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100                  17  // conversion value verified with a cheap power meter
 
 

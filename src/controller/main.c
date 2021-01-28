@@ -21,7 +21,6 @@
 #include "timers.h"
 #include "ebike_app.h"
 #include "torque_sensor.h"
-#include "eeprom.h"
 #include "lights.h"
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,6 +56,11 @@ void UART2_TX_IRQHandler(void) __interrupt(UART2_TX_IRQHANDLER);
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
+#ifdef MAIN_TIME_DEBUG
+volatile uint8_t ui8_main_time;
+uint8_t ui8_max_motor_time = 0;
+uint8_t ui8_max_ebike_time = 0;
+#endif
 
 
 int main (void) {
@@ -65,7 +69,6 @@ int main (void) {
   uint16_t ui16_motor_controller_counter = 0;
   uint16_t ui16_debug_uart_counter = 0;
 
-  uint16_t ui16_temp = 0, ui16_throttle_value_filtered = 0;
 
   // set clock at the max 16 MHz
   CLK_HSIPrescalerConfig(CLK_PRESCALER_HSIDIV1);
@@ -82,7 +85,6 @@ int main (void) {
   pas_init();
   wheel_speed_sensor_init();
   hall_sensor_init();
-  EEPROM_init(); // needed for pwm_init_bipolar_4q
   pwm_init_bipolar_4q();  // init TIM1 at 15625Hz (64us)
   enableInterrupts();
   
@@ -91,16 +93,39 @@ int main (void) {
     ui16_TIM3_counter = TIM3_GetCounter();
 	if ((ui16_TIM3_counter - ui16_motor_controller_counter) > 4) {
 	// run every 4ms
+
+      #ifdef MAIN_TIME_DEBUG
+        // incremented every 50us by PWM interrupt function
+        ui8_main_time = 0;
+      #endif
+
       ui16_motor_controller_counter = ui16_TIM3_counter;
       motor_controller();
+
+      #ifdef MAIN_TIME_DEBUG
+        if (ui8_main_time > ui8_max_motor_time)
+          ui8_max_motor_time = ui8_main_time;
+      #endif
+
       continue;
     }
 
     ui16_TIM3_counter = TIM3_GetCounter();
 	if ((ui16_TIM3_counter - ui16_ebike_app_controller_counter) > 25) {
-	// run every 25ms. Could also run faster. Max duration is 4ms. (tested on 18/7/2020)
+
+      #ifdef MAIN_TIME_DEBUG
+        // incremented every 50us by PWM interrupt function
+        ui8_main_time = 0;
+      #endif
+
+	  // run every 25ms. Could also run faster. Max duration is 4ms. (tested on 18/7/2020)
       ui16_ebike_app_controller_counter = ui16_TIM3_counter;
       ebike_app_controller();
+
+      #ifdef MAIN_TIME_DEBUG
+        if (ui8_main_time > ui8_max_ebike_time)
+          ui8_max_ebike_time = ui8_main_time;
+      #endif
     }
   }
 }
