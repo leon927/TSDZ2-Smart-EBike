@@ -25,6 +25,7 @@ extern volatile uint8_t ui8_adc_battery_voltage_cut_off;
 extern volatile uint8_t ui8_adc_battery_current_filtered;
 extern volatile uint8_t ui8_controller_adc_battery_current_target;
 extern volatile uint8_t ui8_g_duty_cycle;
+extern volatile uint8_t ui8_fw_angle;
 extern volatile uint8_t ui8_controller_duty_cycle_target;
 extern volatile uint8_t ui8_g_foc_angle;
 

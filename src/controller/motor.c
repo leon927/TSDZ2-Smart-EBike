@@ -55,12 +55,15 @@ volatile uint16_t ui16_controller_duty_cycle_ramp_down_inverse_step = PWM_DUTY_C
 volatile uint16_t ui16_adc_battery_voltage_filtered = 0;
 volatile uint8_t ui8_adc_battery_voltage_cut_off = 0xff;
 volatile uint8_t ui8_adc_battery_current_filtered = 0;
-volatile uint16_t ui16_adc_battery_current = 0;
 volatile uint8_t ui8_controller_adc_battery_current = 0;
 volatile uint8_t ui8_controller_adc_battery_current_target = 0;
 volatile uint8_t ui8_g_duty_cycle = 0;
+volatile uint8_t ui8_fw_angle = 0;
 volatile uint8_t ui8_controller_duty_cycle_target = 0;
 volatile uint8_t ui8_g_foc_angle = 0;
+static uint16_t ui16_counter_duty_cycle_ramp_up = 0;
+static uint16_t ui16_counter_duty_cycle_ramp_down = 0;
+
 
 // brakes
 volatile uint8_t ui8_brake_state = 0;
@@ -80,13 +83,11 @@ volatile uint16_t ui16_wheel_speed_sensor_ticks = 0;
 volatile uint32_t ui32_wheel_speed_sensor_ticks_total = 0;
 
 void read_battery_voltage(void);
-void read_battery_current(void);
 void calc_foc_angle(void);
 uint8_t asin_table(uint8_t ui8_inverted_angle_x128);
 
 void motor_controller(void) {
     read_battery_voltage();
-    read_battery_current();
     calc_foc_angle();
 }
 
@@ -268,8 +269,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         and a, #0x03                                    // AND 0x03
         or a, _ui8_controller_adc_battery_current       // |= ADC1->DRL
         ld  _ui8_controller_adc_battery_current+0, a
-        ld  _ui16_adc_battery_current+1, a
-        clr _ui16_adc_battery_current+0
     __endasm;
     #endif
 
@@ -292,10 +291,18 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 #endif
 #endif
 
+    #define READ_BATTERY_CURRENT_FILTER_COEFFICIENT   2
+    static uint16_t ui16_adc_battery_current_accumulated;
+
+    // low pass filter the positive battery readed value (no regen current), to avoid possible fast spikes/noise
+    ui16_adc_battery_current_accumulated -= ui16_adc_battery_current_accumulated >> READ_BATTERY_CURRENT_FILTER_COEFFICIENT;
+    ui16_adc_battery_current_accumulated += (uint16_t)ui8_controller_adc_battery_current;
+    ui8_adc_battery_current_filtered = ui16_adc_battery_current_accumulated >> READ_BATTERY_CURRENT_FILTER_COEFFICIENT;
+
 
     // calculate motor phase current ADC value
     if (ui8_g_duty_cycle > 0)
-        ui8_adc_motor_phase_current = (ui16_adc_battery_current << 6) / ui8_g_duty_cycle;
+        ui8_adc_motor_phase_current = ((uint16_t)ui8_adc_battery_current_filtered << 6) / (uint8_t)ui8_g_duty_cycle;
     else
         ui8_adc_motor_phase_current = 0;
 
@@ -347,13 +354,11 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     // - limit battery max current
     // - limit motor max phase current
     // - limit motor max ERPS
-    // - ramp up/down PWM duty_cycle value
-    static uint16_t ui16_counter_duty_cycle_ramp_up;
-    static uint16_t ui16_counter_duty_cycle_ramp_down;
+    // - ramp up/down PWM duty_cycle and/or field weakening angle value
 
     // check if to decrease, increase or maintain duty cycle
     if ((ui8_g_duty_cycle > ui8_controller_duty_cycle_target)
-            || (ui8_controller_adc_battery_current > ui8_controller_adc_battery_current_target)
+            || (ui8_adc_battery_current_filtered > ui8_controller_adc_battery_current_target)
             || (ui8_adc_motor_phase_current > ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX)
             || (ui16_motor_speed_erps > MOTOR_OVER_SPEED_ERPS)
             || (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off)
@@ -364,11 +369,11 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         // ramp down duty cycle
         if (++ui16_counter_duty_cycle_ramp_down > ui16_controller_duty_cycle_ramp_down_inverse_step) {
             ui16_counter_duty_cycle_ramp_down = 0;
-
-            // decrement duty cycle
-            if (ui8_g_duty_cycle > 0) {
-                --ui8_g_duty_cycle;
-            }
+            // decrement field weakening angle if set or duty cycle if not
+            if (ui8_fw_angle > 0)
+                ui8_fw_angle--;
+            else if (ui8_g_duty_cycle > 0)
+                ui8_g_duty_cycle--;
         }
     } else if (ui8_g_duty_cycle < ui8_controller_duty_cycle_target) {
         // reset duty cycle ramp down counter (filter)
@@ -380,14 +385,25 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
             // increment duty cycle
             if (ui8_g_duty_cycle < PWM_DUTY_CYCLE_MAX) {
-                ++ui8_g_duty_cycle;
+                ui8_g_duty_cycle++;
             }
+        }
+    } else if ((ui16_motor_speed_erps >= MOTOR_ERPS_FIELD_WEAKEANING_MIN) && (ui8_g_duty_cycle == PWM_DUTY_CYCLE_MAX)
+            && (ui8_adc_battery_current_filtered < ui8_controller_adc_battery_current_target)) {
+        if (++ui16_counter_duty_cycle_ramp_up > ui16_controller_duty_cycle_ramp_up_inverse_step) {
+           ui16_counter_duty_cycle_ramp_up = 0;
+
+           // increment field weakening angle
+           if (ui8_fw_angle < FIELD_WEAKEANING_ANGLE_MAX)
+               ui8_fw_angle++;
         }
     } else {
         // duty cycle is where it needs to be so reset ramp counters (filter)
         ui16_counter_duty_cycle_ramp_up = 0;
         ui16_counter_duty_cycle_ramp_down = 0;
     }
+
+    ui8_svm_table_index += ui8_fw_angle;
 
     /****************************************************************************/
 
@@ -591,26 +607,6 @@ void read_battery_voltage(void) {
             >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
     ui16_adc_battery_voltage_accumulated += ui16_adc_read_battery_voltage_10b();
     ui16_adc_battery_voltage_filtered = ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-}
-
-void read_battery_current(void) {
-#define READ_BATTERY_CURRENT_FILTER_COEFFICIENT   2
-
-    /*---------------------------------------------------------
-     NOTE: regarding filter coefficients
-
-     Possible values: 0, 1, 2, 3, 4, 5, 6
-     0 equals to no filtering and no delay, higher values
-     will increase filtering but will also add a bigger delay.
-     ---------------------------------------------------------*/
-
-    static uint16_t ui16_adc_battery_current_accumulated;
-
-    // low pass filter the positive battery readed value (no regen current), to avoid possible fast spikes/noise
-    ui16_adc_battery_current_accumulated -= ui16_adc_battery_current_accumulated
-            >> READ_BATTERY_CURRENT_FILTER_COEFFICIENT;
-    ui16_adc_battery_current_accumulated += ui16_adc_battery_current;
-    ui8_adc_battery_current_filtered = ui16_adc_battery_current_accumulated >> READ_BATTERY_CURRENT_FILTER_COEFFICIENT;
 }
 
 void calc_foc_angle(void) {

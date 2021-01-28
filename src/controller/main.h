@@ -13,7 +13,7 @@
 //#define DEBUG_UART
 //#define PWM_TIME_DEBUG
 //#define MAIN_TIME_DEBUG
-//#define PWM_20K
+#define PWM_20K
 
 #define FW_VERSION 6
 
@@ -23,15 +23,15 @@
     #define PWM_CYCLES_SECOND                                       20000U // 1 / 50us(PWM period)
     #define PWM_CYCLES_COUNTER_MAX                                  4000U  // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 50 us = 4000 (3125 at 15.625KHz)
     // ramp up/down PWM cycles count
-    #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT             204    // 160 -> 160 * 64 us for every duty cycle increment
-    #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                 25     // 20 -> 20 * 64 us for every duty cycle increment
-    #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT           51     // 40 -> 40 * 64 us for every duty cycle decrement
-    #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN               10     // 8 -> 8 * 64 us for every duty cycle decrement
-    #define MOTOR_OVER_SPEED_ERPS                                   650    // motor max speed | 30 points for the sinewave at max speed (<PWM_CYCLES_SECOND/30)
-    #define CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP                  102    // 80
-    #define WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP             255    // 200
-    #define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT        102    // 80
-    #define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN            51     //  40
+    #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT             204    // 160 -> 160 * 64 us for every duty cycle increment at 15.625KHz
+    #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                 25     // 20 -> 20 * 64 us for every duty cycle increment at 15.625KHz
+    #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT           51     // 40 -> 40 * 64 us for every duty cycle decrement at 15.625KHz
+    #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN               10     // 8 -> 8 * 64 us for every duty cycle decrement at 15.625KHz
+    #define MOTOR_OVER_SPEED_ERPS                                   650    // motor max speed | 30 points for the sinewave at max speed (less than PWM_CYCLES_SECOND/30)
+    #define CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP                  102    // 80 at 15.625KHz
+    #define WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP             255    // 200 at 15.625KHz
+    #define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT        102    // 80 at 15.625KHz
+    #define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN            51     // 40 at 15.625KHz
 // cadence
     #define CADENCE_SENSOR_CALC_COUNTER_MIN                         4480  // 3500 at 15.625KHz
     #define CADENCE_TICKS_STARTUP                                   8000  // ui16_cadence_sensor_ticks value for startup. About 7-8 RPM (6250 at 15.625KHz)
@@ -64,6 +64,8 @@
 #endif
 #define PWM_DUTY_CYCLE_MAX                                        254
 #define MIDDLE_PWM_DUTY_CYCLE_MAX                                 (PWM_DUTY_CYCLE_MAX / 2)
+#define MOTOR_ERPS_FIELD_WEAKEANING_MIN                           480  // field weakening is active only above 480 ERPS
+#define FIELD_WEAKEANING_ANGLE_MAX                                6    // max field weakening angle is 360/256*6 = 8.4 degrees
 
 /*---------------------------------------------------------
   NOTE: regarding duty cycle (PWM) ramping
@@ -105,10 +107,8 @@
   but a value of 25 may be good.
 ---------------------------------------------------------*/
 
-
-
-#define ADC_10_BIT_BATTERY_CURRENT_MAX                            106     // 18 amps
-#define ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX                        177     // 30 amps
+#define ADC_10_BIT_BATTERY_CURRENT_MAX                            106     // 17 amps
+#define ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX                        177     // 28 amps
 
 /*---------------------------------------------------------
   NOTE: regarding ADC battery current max

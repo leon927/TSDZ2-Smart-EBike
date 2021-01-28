@@ -427,6 +427,7 @@ static void ebike_control_motor(void) {
             (ui8_adc_battery_current_target) && (!ui8_brakes_engaged)) {
         ui8_motor_enabled = 1;
         ui8_g_duty_cycle = 0;
+        ui8_fw_angle = 0;
         motor_enable_pwm();
     }
 
@@ -990,7 +991,7 @@ static void get_battery_current_filtered(void) {
     ui8_battery_current_filtered_x10 = (uint16_t)(ui8_adc_battery_current_filtered * (uint8_t)BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100) / 10;
 }
 
-#define TOFFSET_CYCLES 10
+#define TOFFSET_CYCLES 50
 static uint8_t toffset_cycle_counter = 0;
 
 static void get_pedal_torque(void) {
@@ -1634,7 +1635,7 @@ static void uart_send_package(void) {
     ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
 #else
-    ui8_tx_buffer[25] = ui8_adc_battery_current_filtered;
+    ui8_tx_buffer[25] = ui8_fw_angle;
     ui8_tx_buffer[26] = 0;
 #endif
 

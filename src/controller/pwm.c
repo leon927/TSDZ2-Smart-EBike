@@ -89,12 +89,15 @@ void pwm_init_bipolar_4q(void) {
 
     // OC4 is being used only to fire interrupt at a specific time (middle of DC link current pulses)
     // OC4 is always syncronized with PWM
+    // Battery current ADC conversion starts 18 CPU cycles after IRQ fires
+    // ADC sampling time is 3 ADC clocks and ADC clock is 1/4 of CPU clock
+    // Start battery current ADC sampling 1 ADC clock before the middle of PWM cycle
     TIM1_OC4Init(TIM1_OCMODE_PWM1,
             TIM1_OUTPUTSTATE_DISABLE,
 #ifdef PWM_20K
-            230, // timing for interrupt firing (hand adjusted) 400/2+30
+            ((400-1) - 18 - 4),
 #else
-            251,
+            ((444-1) - 18 - 4),
 #endif
             TIM1_OCPOLARITY_HIGH,
             TIM1_OCIDLESTATE_RESET);
