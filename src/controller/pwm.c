@@ -37,7 +37,7 @@ void pwm_init_bipolar_4q(void) {
     }
 
     TIM1_TimeBaseInit(0, // TIM1_Prescaler = 0
-            TIM1_COUNTERMODE_CENTERALIGNED1,
+            TIM1_COUNTERMODE_CENTERALIGNED3,
             // clock = 16MHz; counter period = 800; PWM freq = 16MHz / 800 = 20kHz;
             400, // PWM center aligned mode: counts from 0 to 400 and then down from 400 to 0
             1);// will fire the TIM1_IT_UPDATE at every PWM period cycle
@@ -85,7 +85,7 @@ void pwm_init_bipolar_4q(void) {
     // OC4 is always syncronized with PWM
     TIM1_OC4Init(TIM1_OCMODE_PWM1,
             TIM1_OUTPUTSTATE_DISABLE,
-            399,
+            200,
             TIM1_OCPOLARITY_HIGH,
             TIM1_OCIDLESTATE_RESET);
 
@@ -98,6 +98,7 @@ void pwm_init_bipolar_4q(void) {
             TIM1_BREAKPOLARITY_LOW,
             TIM1_AUTOMATICOUTPUT_DISABLE);
 
+    ITC_SetSoftwarePriority(ITC_IRQ_TIM1_CAPCOM, ITC_PRIORITYLEVEL_3);
     TIM1_ITConfig(TIM1_IT_CC4, ENABLE);
     TIM1_Cmd(ENABLE); // TIM1 counter enable
     TIM1_CtrlPWMOutputs(ENABLE);

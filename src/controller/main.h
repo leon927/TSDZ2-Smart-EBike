@@ -11,7 +11,7 @@
 
 
 //#define DEBUG_UART
-#define PWM_TIME_DEBUG
+//#define PWM_TIME_DEBUG
 //#define MAIN_TIME_DEBUG
 
 #define FW_VERSION 7
@@ -20,7 +20,7 @@
 // motor 
 #define PWM_CYCLES_SECOND                                       20000U // 50us (PWM period)
 #define PWM_CYCLES_COUNTER_MAX                                  4000U  // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 50 us = 4000 (3125 at 15.625KHz)
-//#define DOUBLE_PWM_CYCLES_SECOND                                40000U // 25us (2 irq x PWM period)
+#define DOUBLE_PWM_CYCLES_SECOND                                40000U // 25us (2 irq x PWM period)
 // ramp up/down PWM cycles count
 #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT             204    // 160 -> 160 * 64 us for every duty cycle increment at 15.625KHz
 #define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                 25     // 20 -> 20 * 64 us for every duty cycle increment at 15.625KHz
@@ -44,7 +44,7 @@
 #define PWM_DUTY_CYCLE_MAX                                        254
 #define MIDDLE_PWM_DUTY_CYCLE_MAX                                 (PWM_DUTY_CYCLE_MAX / 2)
 #define MOTOR_ERPS_FIELD_WEAKEANING_MIN                           476  // field weakening is active only above 480 ERPS
-#define FIELD_WEAKEANING_ANGLE_MAX                                6    // max field weakening angle is 360/256*6 = 8.4 degrees
+#define FIELD_WEAKEANING_ANGLE_MAX                                4    // max field weakening angle is 360/256*6 = 8.4 degrees
 
 /*---------------------------------------------------------
   NOTE: regarding duty cycle (PWM) ramping

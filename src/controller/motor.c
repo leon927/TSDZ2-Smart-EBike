@@ -42,12 +42,15 @@ uint8_t ui8_sin_table[SIN_TABLE_LEN] = { 3, 6, 9, 12, 16, 19, 22, 25, 28, 31, 34
         115, 117, 118, 119, 120, 121, 122, 123, 124, 125, 125, 126, 126, 127 };
 
 // motor variables
-uint16_t ui16_PWM_cycles_counter = 1;
-uint16_t ui16_PWM_cycles_counter_6 = 1;
+uint8_t ui8_pwm_counter_valid_a = 0;
+uint16_t ui16_PWM_cycles_counter_a = 3;
+uint8_t ui8_pwm_counter_valid_b = 0;
+uint16_t ui16_PWM_cycles_counter_b = 3;
+uint16_t ui16_PWM_cycles_counter_6 = 3;
 uint16_t ui16_PWM_cycles_counter_total = 0xffff;
 uint8_t ui8_motor_commutation_type = BLOCK_COMMUTATION;
-uint8_t ui8_half_erps_flag = 0;
 volatile uint16_t ui16_motor_speed_erps = 0;
+static uint8_t ui8_motor_rotor_absolute_angle;
 
 // power variables
 volatile uint8_t ui8_controller_duty_cycle_ramp_up_inverse_step = PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT;
@@ -90,11 +93,8 @@ void calc_foc_angle(void);
 uint8_t asin_table(uint8_t ui8_inverted_angle_x128);
 
 void motor_controller(void) {
+    ui16_motor_speed_erps = ((uint16_t) DOUBLE_PWM_CYCLES_SECOND) / (ui16_PWM_cycles_counter_total - 3);
     read_battery_voltage();
-    if (ui16_PWM_cycles_counter_total == 0xffff)
-        ui16_motor_speed_erps = 0;
-    else
-        ui16_motor_speed_erps = ((uint16_t)PWM_CYCLES_SECOND) / ui16_PWM_cycles_counter_total;
     calc_foc_angle();
 }
 
@@ -112,29 +112,24 @@ volatile uint16_t ui16_pwm_cnt_up_irq;
 extern volatile uint8_t ui8_main_time;
 #endif
 
-// runs every 64us (PWM frequency)
+// PWM cycle interrupt
+// TIM1 is center aligned and every cycle counts up from 0 to 400 and then down from 400 to 0 (25+25us = 50us total time)
+// The interrupt fires two times every cycle (when reaches 200 up and down)
+// Both interrupts are used to update rotor position counters (max 25us rotor position offset error)
+// Up interrupt is also used for:
+//  - read and filter battery current
+//  - start ADC scan conversion
+//  - PAS sensor reading and cadence computation
+//  - wheel speed sensor reading and wheel speed computation
+// Down interrupt is also used for:
+//  - compute rotor position
+//  - check brake (coaster brake and brake input signal)
+//  - compute and apply duty cycle to TIM1
+
 void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 {
-    static uint8_t ui8_motor_rotor_absolute_angle;
-    static uint8_t ui8_svm_table_index;
-    uint8_t ui8_phase_a_voltage;
-    uint8_t ui8_phase_b_voltage;
-    uint8_t ui8_phase_c_voltage;
-    uint8_t ui8_temp;
-    uint16_t ui16_value;
-
-    /****************************************************************************/
-
-    // trigger ADC conversion (scan conversion, buffered)
-    ADC1->CSR = 0x07;               // clear EOC flag and ADC scan up to channel 7
-    ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
-
-    /****************************************************************************/
-    #ifdef MAIN_TIME_DEBUG
-        ui8_main_time++;
-    #endif
-
-    /****************************************************************************/
+    // TIM1->CR1 & 0x10 contains counter direction (0=up, 1=down)
+    uint8_t ui8_pwm_down = TIM1->CR1 & 0x10;
 
     /****************************************************************************/
 
@@ -153,6 +148,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     //      bit 4 0x10 Hall sensor C
     //      bit 2 0x04 Hall sensor B
     // ui8_hall_sensors_state sequence with motor forward rotation: 0x10, 0x14, 0x04, 0x24, 0x20, 0x30
+    //
+    // ui16_PWM_cycles_counter and ui16_PWM_cycles_counter_6 are initialized with value 3:
+    // read PWMCalculations.xlsx in the repositoy
 
 
     ui8_hall_sensors_state = (HALL_SENSOR_A__PORT->IDR & HALL_SENSOR_A__PIN)
@@ -163,31 +161,41 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if (ui8_hall_sensors_state != ui8_hall_sensors_state_last) {
         if (ui8_hall_sensors_state == 0x20) {
             // check half ERPS flag and motor rotational direction
-            if ((ui8_half_erps_flag == 1) && (ui8_hall_sensors_state_last == 0x24)) {
-                ui8_half_erps_flag = 0;
-                ui16_PWM_cycles_counter_total = ui16_PWM_cycles_counter;
-                ui16_PWM_cycles_counter = 1;
-
-                /*
-                // avoid division by 0
-                if (ui16_PWM_cycles_counter_total > 0) {
-                    ui16_motor_speed_erps = ((uint16_t) PWM_CYCLES_SECOND) / ui16_PWM_cycles_counter_total;
-                } else {
-                    ui16_motor_speed_erps = ((uint16_t) PWM_CYCLES_SECOND);
-                }
-                */
+            if (ui8_pwm_counter_valid_a && (ui8_hall_sensors_state_last == 0x24)) {
+                ui16_PWM_cycles_counter_total = ui16_PWM_cycles_counter_a;
 
                 // update motor commutation state based on motor speed
-//                if (ui16_motor_speed_erps > MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES) {
-                if (ui16_PWM_cycles_counter_total < (PWM_CYCLES_SECOND / MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES)) {
+                if (ui16_PWM_cycles_counter_total < (DOUBLE_PWM_CYCLES_SECOND / MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES)) {
                     ui8_motor_commutation_type = SINEWAVE_INTERPOLATION_60_DEGREES;
                 } else {
                     ui8_motor_commutation_type = BLOCK_COMMUTATION;
                     ui8_g_foc_angle = 0;
                 }
-            }
 
+                ui16_PWM_cycles_counter_a = 3;
+            }
+            ui8_pwm_counter_valid_a = 1;
             ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_210;
+        } else if (ui8_hall_sensors_state == 0x14) {
+            // BEMF is always 90 degrees advanced over motor rotor position degree zero
+            // and here (hall sensor C blue wire, signal transition from positive to negative),
+            // phase B BEMF is at max value (measured on osciloscope by rotating the motor)
+            // check half ERPS flag and motor rotational direction
+            if (ui8_pwm_counter_valid_b && (ui8_hall_sensors_state_last == 0x10)) {
+                ui16_PWM_cycles_counter_total = ui16_PWM_cycles_counter_b;
+
+                // update motor commutation state based on motor speed
+                if (ui16_PWM_cycles_counter_total < (DOUBLE_PWM_CYCLES_SECOND / MOTOR_ROTOR_ERPS_START_INTERPOLATION_60_DEGREES)) {
+                    ui8_motor_commutation_type = SINEWAVE_INTERPOLATION_60_DEGREES;
+                } else {
+                    ui8_motor_commutation_type = BLOCK_COMMUTATION;
+                    ui8_g_foc_angle = 0;
+                }
+
+                ui16_PWM_cycles_counter_b = 3;
+            }
+            ui8_pwm_counter_valid_b = 1;
+            ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_30;
         } else {
             switch (ui8_hall_sensors_state) {
                 case 0x30:
@@ -196,14 +204,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                 case 0x10:
                     ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_330;
                     break;
-                case 0x14:
-                    ui8_half_erps_flag = 1;
-                    ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_30;
-                    break;
 
-            // BEMF is always 90 degrees advanced over motor rotor position degree zero
-            // and here (hall sensor C blue wire, signal transition from positive to negative),
-            // phase B BEMF is at max value (measured on osciloscope by rotating the motor)
                 case 0x04:
                     ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_90;
                     break;
@@ -214,11 +215,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
                 default:
                     return;
-                    break;
             }
         }
 
-        ui16_PWM_cycles_counter_6 = 1;
+        ui16_PWM_cycles_counter_6 = 3;
 
         // update last hall sensor state
         ui8_hall_sensors_state_last = ui8_hall_sensors_state;
@@ -227,90 +227,35 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     /****************************************************************************/
 
     // count number of fast loops / PWM cycles and reset some states when motor is near zero speed
-    if (ui16_PWM_cycles_counter < PWM_CYCLES_COUNTER_MAX) {
-        ui16_PWM_cycles_counter++;
+    if (ui16_PWM_cycles_counter_a < PWM_CYCLES_COUNTER_MAX) {
+        ui16_PWM_cycles_counter_a++;
+        ui16_PWM_cycles_counter_b++;
         ui16_PWM_cycles_counter_6++;
     } else {
         // motor is stopped or near zero speed
-        ui16_PWM_cycles_counter = 1; // don't put to 0 to avoid 0 divisions
-        ui16_PWM_cycles_counter_6 = 1;
-        ui8_half_erps_flag = 0;
-//        ui16_motor_speed_erps = 0;
+        ui16_PWM_cycles_counter_a = 3;
+        ui16_PWM_cycles_counter_b = 3;
+        ui16_PWM_cycles_counter_6 = 3;
+        ui8_pwm_counter_valid_a = 0;
+        ui8_pwm_counter_valid_b = 0;
         ui16_PWM_cycles_counter_total = 0xffff;
         ui8_g_foc_angle = 0;
         ui8_motor_commutation_type = BLOCK_COMMUTATION;
         ui8_hall_sensors_state_last = 0; // this way we force execution of hall sensors code next time
     }
 
-#ifdef PWM_TIME_DEBUG
-    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
-    __asm
-        ld  a, 0x5250
-            and a, #0x10 // counter direction end irq
-        or  a, 0x525e // TIM1->CNTRH
-            ld  _ui16_pwm_cnt_down_irq+0, a      // ui16_pwm_cnt_down_irq MSB = TIM1->CNTRH | direction
-            mov _ui16_pwm_cnt_down_irq+1, 0x525f // ui16_pwm_cnt_down_irq LSB = TIM1->CNTRL
-    __endasm;
-
-#endif
-#endif
+    // TIM1->CR1 & 0x10 contains counter direction (0=up, 1=down)
+    if (ui8_pwm_down) {
+        uint8_t ui8_svm_table_index;
+        uint8_t ui8_phase_a_voltage;
+        uint8_t ui8_phase_b_voltage;
+        uint8_t ui8_phase_c_voltage;
+        uint8_t ui8_temp;
+        uint16_t ui16_value;
 
     /****************************************************************************/
 
-    /*
-    // Read battery current
-    // Left alignment: Read MSB first then read LSB !
-    ui8_temp = ADC1->DB5RH;
-    ui8_temp <<= 2;
-    ui8_temp |= ADC1->DB5RL
-    ui8_adc_battery_current_acc >>= 1;
-    ui8_adc_battery_current_filtered >>= 1;
-    ui8_adc_battery_current_acc = (uint8_t)(ui8_temp >> 1) + ui8_adc_battery_current_acc;
-    ui8_adc_battery_current_filtered = (uint8_t)(ui8_adc_battery_current_acc >> 1) + ui8_adc_battery_current_filtered;
-
-    // calculate motor phase current ADC value
-    if (ui8_g_duty_cycle > 0)
-        ui8_adc_motor_phase_current = (uint16_t)((uint16_t)((uint16_t)ui8_adc_battery_current_filtered << 6)) / ui8_g_duty_cycle;
-    else
-        ui8_adc_motor_phase_current = 0;
-    */
-
-    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
-    __asm
-    ld  a, 0x53EA                               // ui8_temp = ADC1->DB5RH;
-    sll a                                       // ui8_temp <<= 2;
-    sll a
-    or  a, 0x53EB                               // ui8_temp |= ADC1->DB5RL;
-    srl _ui8_adc_battery_current_acc+0          // ui8_adc_battery_current_acc >>= 1;
-    srl a                                       // ui8_adc_battery_current_acc = (uint8_t)(ui8_temp >> 1) + ui8_adc_battery_current_acc;
-    add a, _ui8_adc_battery_current_acc+0
-    ld  _ui8_adc_battery_current_acc+0, a
-    srl _ui8_adc_battery_current_filtered+0     // ui8_adc_battery_current_filtered >>= 1;
-    srl a                                       // ui8_adc_battery_current_filtered = (uint8_t)(ui8_adc_battery_current_acc >> 1) + ui8_adc_battery_current_filtered;
-    add a, _ui8_adc_battery_current_filtered+0
-    ld  _ui8_adc_battery_current_filtered+0, a
-
-    tnz _ui8_g_duty_cycle+0                     // if (ui8_g_duty_cycle > 0)
-    jreq 00001$
-    clrw    x          // ui8_adc_motor_phase_current = (ui8_adc_battery_current_filtered << 6)) / ui8_g_duty_cycle;
-    ld  xh, a
-    srlw    x
-    srlw    x
-    ld  a, _ui8_g_duty_cycle+0
-    div    x, a
-    ld  a, xl
-    ld  _ui8_adc_motor_phase_current+0, a
-    jra 00002$
-    00001$:
-    clr _ui8_adc_motor_phase_current+0      // ui8_adc_motor_phase_current = 0;
-    00002$:
-    __endasm;
-    #endif
-
-
-    /****************************************************************************/
-
-    // - calc interpolation angle and sinewave table index
+        // - calc interpolatioangle and sinewave table index
 #define DO_INTERPOLATION 1 // may be useful to disable interpolation when debugging
 #if DO_INTERPOLATION == 1
     // calculate the interpolation angle (and it doesn't work when motor starts and at very low speeds)
@@ -358,8 +303,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if ((ui8_g_duty_cycle > ui8_controller_duty_cycle_target)
             || (ui8_adc_battery_current_filtered > ui8_controller_adc_battery_current_target)
             || (ui8_adc_motor_phase_current > ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX)
-//            || (ui16_motor_speed_erps > MOTOR_OVER_SPEED_ERPS)
-            || (ui16_PWM_cycles_counter_total < (PWM_CYCLES_SECOND / MOTOR_OVER_SPEED_ERPS))
+                || (ui16_PWM_cycles_counter_total < (DOUBLE_PWM_CYCLES_SECOND / MOTOR_OVER_SPEED_ERPS))
             || (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off)
             || (ui8_brake_state)) {
         // reset duty cycle ramp up counter (filter)
@@ -387,8 +331,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                 ui8_g_duty_cycle++;
             }
         }
-//    } else if ((ui16_motor_speed_erps >= MOTOR_ERPS_FIELD_WEAKEANING_MIN) && (ui8_g_duty_cycle == PWM_DUTY_CYCLE_MAX)
-    } else if ((ui16_PWM_cycles_counter_total <= (PWM_CYCLES_SECOND / MOTOR_ERPS_FIELD_WEAKEANING_MIN))
+        } else if ((ui16_PWM_cycles_counter_total <= (DOUBLE_PWM_CYCLES_SECOND / MOTOR_ERPS_FIELD_WEAKEANING_MIN))
             && (ui8_g_duty_cycle == PWM_DUTY_CYCLE_MAX)
             && (ui8_adc_battery_current_filtered < ui8_controller_adc_battery_current_target)) {
         if (++ui8_counter_duty_cycle_ramp_up > ui8_controller_duty_cycle_ramp_up_inverse_step) {
@@ -415,12 +358,10 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     ui8_temp = ui8_svm_table[(uint8_t) (ui8_svm_table_index + 171)]; /* +240� */
     if (ui8_temp > MIDDLE_PWM_DUTY_CYCLE_MAX) {
         ui16_value = (uint16_t)((uint8_t)(ui8_temp - MIDDLE_PWM_DUTY_CYCLE_MAX) * (uint8_t)ui8_g_duty_cycle);
-        //ui16_value = ((uint16_t) (ui8_temp - MIDDLE_PWM_DUTY_CYCLE_MAX)) * ui8_g_duty_cycle;
         ui8_temp = (uint8_t) (ui16_value >> 8);
         ui8_phase_a_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX + ui8_temp;
     } else {
         ui16_value = (uint16_t)((uint8_t)(MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
-        //ui16_value = ((uint16_t) (MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp)) * ui8_g_duty_cycle;
         ui8_temp = (uint8_t) (ui16_value >> 8);
         ui8_phase_a_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp;
     }
@@ -460,7 +401,78 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     TIM1->CCR1H = (uint8_t) (ui8_phase_a_voltage >> 7);
     TIM1->CCR1L = (uint8_t) (ui8_phase_a_voltage << 1);
 
+        #ifdef PWM_TIME_DEBUG
+            #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+            __asm
+                ld  a, 0x5250
+                and a, #0x10 // counter direction end irq
+                or  a, 0x525e // TIM1->CNTRH
+                ld  _ui16_pwm_cnt_down_irq+0, a      // ui16_pwm_cnt_down_irq MSB = TIM1->CNTRH | direction
+                mov _ui16_pwm_cnt_down_irq+1, 0x525f // ui16_pwm_cnt_down_irq LSB = TIM1->CNTRL
+            __endasm;
+            #endif
+        #endif
+
+    } else {
+        /****************************************************************************/
+
+        /*
+        // Read battery current
+        // Left alignment: Read MSB first then read LSB !
+        ui8_temp = ADC1->DB5RH;
+        ui8_temp <<= 2;
+        ui8_temp |= ADC1->DB5RL
+        ui8_adc_battery_current_acc >>= 1;
+        ui8_adc_battery_current_filtered >>= 1;
+        ui8_adc_battery_current_acc = (uint8_t)(ui8_temp >> 1) + ui8_adc_battery_current_acc;
+        ui8_adc_battery_current_filtered = (uint8_t)(ui8_adc_battery_current_acc >> 1) + ui8_adc_battery_current_filtered;
+
+        // calculate motor phase current ADC value
+        if (ui8_g_duty_cycle > 0)
+            ui8_adc_motor_phase_current = (uint16_t)((uint16_t)((uint16_t)ui8_adc_battery_current_filtered << 6)) / ui8_g_duty_cycle;
+        else
+            ui8_adc_motor_phase_current = 0;
+        */
+
+        #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+        __asm
+        ld  a, 0x53EA                               // ui8_temp = ADC1->DB5RH;
+        sll a                                       // ui8_temp <<= 2;
+        sll a
+        or  a, 0x53EB                               // ui8_temp |= ADC1->DB5RL;
+        srl _ui8_adc_battery_current_acc+0          // ui8_adc_battery_current_acc >>= 1;
+        srl a                                       // ui8_adc_battery_current_acc = (uint8_t)(ui8_temp >> 1) + ui8_adc_battery_current_acc;
+        add a, _ui8_adc_battery_current_acc+0
+        ld  _ui8_adc_battery_current_acc+0, a
+        srl _ui8_adc_battery_current_filtered+0     // ui8_adc_battery_current_filtered >>= 1;
+        srl a                                       // ui8_adc_battery_current_filtered = (uint8_t)(ui8_adc_battery_current_acc >> 1) + ui8_adc_battery_current_filtered;
+        add a, _ui8_adc_battery_current_filtered+0
+        ld  _ui8_adc_battery_current_filtered+0, a
+
+        tnz _ui8_g_duty_cycle+0                     // if (ui8_g_duty_cycle > 0)
+        jreq 00001$
+        clrw    x          // ui8_adc_motor_phase_current = (ui8_adc_battery_current_filtered << 6)) / ui8_g_duty_cycle;
+        ld  xh, a
+        srlw    x
+        srlw    x
+        ld  a, _ui8_g_duty_cycle+0
+        div    x, a
+        ld  a, xl
+        ld  _ui8_adc_motor_phase_current+0, a
+        jra 00002$
+        00001$:
+        clr _ui8_adc_motor_phase_current+0      // ui8_adc_motor_phase_current = 0;
+        00002$:
+        __endasm;
+        #endif
+
     /****************************************************************************/
+
+        // trigger ADC conversion (scan conversion, buffered)
+        ADC1->CSR = 0x07;               // clear EOC flag and ADC scan up to channel 7
+        ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
+
+        /****************************************************************************/
 
     /*
      * - New pedal start/stop detection Algorithm (by MSpider65) -
@@ -568,17 +580,24 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             ui8_wheel_speed_sensor_ticks_counter_started = 0;
         }
 
-#ifdef PWM_TIME_DEBUG
-    #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
-    __asm
-        ld  a, 0x5250
-        and a, #0x10 // counter direction end irq
-        or  a, 0x525e // TIM1->CNTRH
-        ld  _ui16_pwm_cnt_up_irq+0, a      // ui16_pwm_cnt_up_irq MSB = TIM1->CNTRH | direction
-        mov _ui16_pwm_cnt_up_irq+1, 0x525f // ui16_pwm_cnt_up_irq LSB = TIM1->CNTRL
-    __endasm;
-#endif
-#endif
+        #ifdef MAIN_TIME_DEBUG
+            ui8_main_time++;
+        #endif
+
+        #ifdef PWM_TIME_DEBUG
+            #ifndef __CDT_PARSER__ // avoid Eclipse syntax check
+            __asm
+                ld  a, 0x5250
+                and a, #0x10 // counter direction end irq
+                or  a, 0x525e // TIM1->CNTRH
+                ld  _ui16_pwm_cnt_up_irq+0, a      // ui16_pwm_cnt_up_irq MSB = TIM1->CNTRH | direction
+                mov _ui16_pwm_cnt_up_irq+1, 0x525f // ui16_pwm_cnt_up_irq LSB = TIM1->CNTRL
+            __endasm;
+            #endif
+        #endif
+    }
+
+    /****************************************************************************/
 
     // clears the TIM1 interrupt TIM1_IT_UPDATE pending bit
     TIM1->SR1 = (uint8_t) (~(uint8_t) TIM1_IT_CC4);
@@ -606,7 +625,7 @@ void read_battery_voltage(void) {
     // low pass filter the voltage readed value, to avoid possible fast spikes/noise
     ui16_adc_battery_voltage_accumulated -= ui16_adc_battery_voltage_accumulated
             >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
-    ui16_adc_battery_voltage_accumulated += ui16_adc_read_battery_voltage_10b();
+    ui16_adc_battery_voltage_accumulated += (uint16_t)(UI16_ADC_10_BIT_BATTERY_VOLTAGE);
     ui16_adc_battery_voltage_filtered = ui16_adc_battery_voltage_accumulated >> READ_BATTERY_VOLTAGE_FILTER_COEFFICIENT;
 }
 

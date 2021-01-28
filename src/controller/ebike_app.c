@@ -1567,24 +1567,7 @@ static void uart_send_package(void) {
 
 #ifdef PWM_TIME_DEBUG
     uint16_t ui16_val;
-    // PWM irq middle time
-    ui16_temp = ui16_pwm_cnt_down_irq;
-    if (ui16_temp & 0x1000)
-        ui16_val = 399U - (ui16_temp & 0x0fff);
-        else
-        ui16_val = 399U + (ui16_temp & 0x0fff);
-    if (ui16_val > ui16_max_pwm_down_time)
-        ui16_max_pwm_down_time = ui16_val;
 
-    // PWM irq end time
-    ui16_temp = ui16_pwm_cnt_up_irq;
-    if (ui16_temp & 0x1000)
-        ui16_val = 399U - (ui16_temp & 0x0fff);
-        else
-        ui16_val = 399U + (ui16_temp & 0x0fff);
-    if (ui16_val > ui16_max_pwm_up_time)
-        ui16_max_pwm_up_time = ui16_val;
-    /*
     // PWM down irq
     ui16_temp = ui16_pwm_cnt_down_irq;
     if (ui16_temp & 0x1000)
@@ -1602,7 +1585,6 @@ static void uart_send_package(void) {
         ui16_val = (ui16_temp & 0x0fff) - 200U;
     if (ui16_val > ui16_max_pwm_up_time)
         ui16_max_pwm_up_time = ui16_val;
-    */
 #endif
 
 
