@@ -496,8 +496,6 @@ static void apply_power_assist() {
     // calculate power assist by multiplying human power with the power assist multiplier
     uint32_t ui32_power_assist_x100 = (((uint16_t)(ui8_pedal_cadence_RPM * ui8_power_assist_multiplier_x10))
             * (uint32_t)ui16_pedal_torque_x100) / 96U; // see note below
-    //uint32_t ui32_power_assist_x100 = ((uint32_t) ui16_pedal_torque_x100 * ui8_pedal_cadence_RPM +++
-    //        * ui8_power_assist_multiplier_x10) / 96U; // see note below
 
     /*------------------------------------------------------------------------
 
@@ -516,8 +514,7 @@ static void apply_power_assist() {
     uint16_t ui16_battery_current_target_x100 = (ui32_power_assist_x100 * 1000) / ui16_battery_voltage_filtered_x1000;
 
     // set battery current target in ADC steps
-    uint16_t ui16_adc_battery_current_target = ui16_battery_current_target_x100
-            / BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100;
+    uint16_t ui16_adc_battery_current_target = ui16_battery_current_target_x100 / BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100;
 
     // set motor acceleration
     ui16_duty_cycle_ramp_up_inverse_step = map((uint32_t) ui16_wheel_speed_x10,
@@ -761,7 +758,6 @@ static void apply_emtb_assist() {
 }
 
 static void apply_walk_assist() {
-#define WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP     200
 #define WALK_ASSIST_DUTY_CYCLE_MAX                      80
 #define WALK_ASSIST_ADC_BATTERY_CURRENT_MAX             80
 
@@ -775,10 +771,8 @@ static void apply_walk_assist() {
         }
 
         // set motor acceleration
-        ui16_duty_cycle_ramp_up_inverse_step =
-        WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP;
-        ui16_duty_cycle_ramp_down_inverse_step =
-        PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
+        ui16_duty_cycle_ramp_up_inverse_step = WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP;
+        ui16_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
 
         // set battery current target
         ui8_adc_battery_current_target = ui8_min(
@@ -790,11 +784,10 @@ static void apply_walk_assist() {
 }
 
 static void apply_cruise() {
-#define CRUISE_PID_KP                             12    // 48 volt motor: 12, 36 volt motor: 14
+#define CRUISE_PID_KP                             14    // 48 volt motor: 12, 36 volt motor: 14
 #define CRUISE_PID_KI                             0.7   // 48 volt motor: 1, 36 volt motor: 0.7
 #define CRUISE_PID_INTEGRAL_LIMIT                 1000
 #define CRUISE_PID_KD                             0
-#define CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP    80
 
     if (ui16_wheel_speed_x10 > CRUISE_THRESHOLD_SPEED_X10) {
         static int16_t i16_error;
@@ -816,7 +809,6 @@ static void apply_cruise() {
             i16_control_output = 0;
 
             // check what target wheel speed to use (received or current)
-            //uint16_t ui16_wheel_speed_target_received_x10 = (uint16_t) ui8_riding_mode_parameter * 10; +++
             uint16_t ui16_wheel_speed_target_received_x10 = ui8_riding_mode_parameter * (uint8_t)10;
 
             if (ui16_wheel_speed_target_received_x10 > 0) {
@@ -862,10 +854,8 @@ static void apply_cruise() {
         }
 
         // set motor acceleration
-        ui16_duty_cycle_ramp_up_inverse_step =
-        CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP;
-        ui16_duty_cycle_ramp_down_inverse_step =
-        PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
+        ui16_duty_cycle_ramp_up_inverse_step = CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP;
+        ui16_duty_cycle_ramp_down_inverse_step = PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT;
 
         // set battery current target
         ui8_adc_battery_current_target = ui8_adc_battery_current_max;
@@ -879,8 +869,6 @@ static void apply_cruise() {
 }
 
 static void apply_throttle() {
-#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT    80
-#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN        40
 
     // map value from 0 to 255
     ui8_adc_throttle = map((uint8_t) UI8_ADC_THROTTLE, (uint8_t) ADC_THROTTLE_MIN_VALUE,
@@ -999,7 +987,6 @@ static void get_battery_voltage_filtered(void) {
 }
 
 static void get_battery_current_filtered(void) {
-//    ui8_battery_current_filtered_x10 = ((uint16_t) ui8_adc_battery_current_filtered * BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100) / 10; +++
     ui8_battery_current_filtered_x10 = (uint16_t)(ui8_adc_battery_current_filtered * (uint8_t)BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100) / 10;
 }
 
@@ -1392,7 +1379,6 @@ static void uart_receive_package(void) {
                         + ((uint16_t) ui8_rx_buffer[5]);
 
                 // set low voltage cutoff (8 bit)
-//                ui8_adc_battery_voltage_cut_off = ((uint32_t) m_configuration_variables.ui16_battery_low_voltage_cut_off_x10 * 25U) +++
                 ui8_adc_battery_voltage_cut_off = (m_configuration_variables.ui16_battery_low_voltage_cut_off_x10 * 25U)
                                 / BATTERY_VOLTAGE_PER_10_BIT_ADC_STEP_X1000;
 
@@ -1467,8 +1453,6 @@ static void uart_receive_package(void) {
                 m_configuration_variables.ui8_target_battery_max_power_div25 = ui8_rx_buffer[7];
 
                 // calculate max battery current in ADC steps from the received battery current limit
-//                uint8_t ui8_adc_battery_current_max_temp_1 = ((uint16_t) ui8_battery_current_max * 100)
-//                / BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100; +++
                 uint8_t ui8_adc_battery_current_max_temp_1 = (uint16_t)(ui8_battery_current_max * (uint8_t)100)
                         / (uint16_t)BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100;
 
@@ -1483,25 +1467,7 @@ static void uart_receive_package(void) {
                 break;
 
             case 6:
-
-                // cadence sensor mode
-                //ui8_cadence_sensor_mode = ui8_rx_buffer[5];
-
-                // cadence sensor pulse high percentage
-                //if (ui8_cadence_sensor_mode == ADVANCED_MODE)
-                //{
-                //  ui16_cadence_sensor_pulse_high_percentage_x10 = (((uint16_t) ui8_rx_buffer[7]) << 8) + ((uint16_t) ui8_rx_buffer[6]);
-                //}
-
-                /*-------------------------------------------------------------------------------------------------
-
-                 NOTE: regarding the cadence sensor mode and cadence sensor pulse high percentage
-
-                 These two variables need to be received at the same time. If they are not it might trigger the
-                 ERROR_CADENCE_SENSOR_CALIBRATION flag.
-
-                 -------------------------------------------------------------------------------------------------*/
-
+                // Not Used
                 break;
 
             default:
@@ -1665,11 +1631,14 @@ static void uart_send_package(void) {
     // Free for future use
 #ifdef PWM_TIME_DEBUG
     ui16_temp = ui16_max_pwm_end_time;
-#else
-    ui16_temp = 0;
-#endif
     ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
+#else
+    ui8_tx_buffer[25] = ui8_adc_battery_current_filtered;
+    ui8_tx_buffer[26] = 0;
+#endif
+
+
 
     // prepare crc of the package
     ui16_crc_tx = 0xffff;
