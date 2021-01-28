@@ -25,17 +25,264 @@
 #define SVM_TABLE_LEN   256
 #define SIN_TABLE_LEN   59
 
-uint8_t ui8_svm_table[SVM_TABLE_LEN] = { 239, 241, 242, 243, 245, 246, 247, 248, 249, 250, 251, 251, 252, 253, 253, 254,
-        254, 254, 255, 255, 255, 255, 255, 255, 254, 254, 254, 253, 253, 252, 251, 250, 250, 249, 248, 247, 245, 244,
-        243, 242, 240, 239, 236, 231, 227, 222, 217, 212, 207, 202, 197, 191, 186, 181, 176, 170, 165, 160, 154, 149,
-        144, 138, 133, 127, 122, 116, 111, 106, 100, 95, 89, 84, 79, 74, 68, 63, 58, 53, 48, 43, 38, 33, 28, 23, 18, 16,
-        14, 13, 12, 10, 9, 8, 7, 6, 5, 4, 3, 3, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 5, 6, 6, 8, 9,
-        10, 11, 12, 14, 15, 17, 15, 14, 12, 11, 10, 9, 8, 6, 6, 5, 4, 3, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,
-        2, 3, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 16, 18, 23, 28, 33, 38, 43, 48, 53, 58, 63, 68, 74, 79, 84, 89, 95,
-        100, 106, 111, 116, 122, 127, 133, 138, 144, 149, 154, 160, 165, 170, 176, 181, 186, 191, 197, 202, 207, 212,
-        217, 222, 227, 231, 236, 239, 240, 242, 243, 244, 245, 247, 248, 249, 250, 250, 251, 252, 253, 253, 254, 254,
-        254, 255, 255, 255, 255, 255, 255, 254, 254, 254, 253, 253, 252, 251, 251, 250, 249, 248, 247, 246, 245, 243,
-        242, 241, 239, 238 };
+uint8_t ui8_svm_table[SVM_TABLE_LEN] = {
+        199,
+        200,
+        202,
+        203,
+        204,
+        205,
+        206,
+        207,
+        208,
+        208,
+        209,
+        210,
+        210,
+        211,
+        211,
+        211,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        211,
+        211,
+        211,
+        210,
+        210,
+        209,
+        208,
+        208,
+        207,
+        206,
+        206,
+        205,
+        204,
+        203,
+        202,
+        201,
+        200,
+        199,
+        196,
+        192,
+        188,
+        184,
+        180,
+        176,
+        172,
+        167,
+        163,
+        159,
+        154,
+        150,
+        146,
+        141,
+        137,
+        133,
+        128,
+        124,
+        119,
+        115,
+        110,
+        106,
+        102,
+        97,
+        93,
+        88,
+        84,
+        79,
+        75,
+        71,
+        66,
+        62,
+        58,
+        53,
+        49,
+        45,
+        40,
+        36,
+        32,
+        28,
+        24,
+        20,
+        16,
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7,
+        6,
+        6,
+        5,
+        4,
+        4,
+        3,
+        2,
+        2,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        2,
+        2,
+        3,
+        4,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        12,
+        13,
+        14,
+        13,
+        12,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        4,
+        3,
+        2,
+        2,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        2,
+        2,
+        3,
+        4,
+        4,
+        5,
+        6,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        16,
+        20,
+        24,
+        28,
+        32,
+        36,
+        40,
+        45,
+        49,
+        53,
+        58,
+        62,
+        66,
+        71,
+        75,
+        79,
+        84,
+        88,
+        93,
+        97,
+        102,
+        106,
+        110,
+        115,
+        119,
+        124,
+        128,
+        133,
+        137,
+        141,
+        146,
+        150,
+        154,
+        159,
+        163,
+        167,
+        172,
+        176,
+        180,
+        184,
+        188,
+        192,
+        196,
+        199,
+        200,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        206,
+        207,
+        208,
+        208,
+        209,
+        210,
+        210,
+        211,
+        211,
+        211,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        212,
+        211,
+        211,
+        211,
+        210,
+        210,
+        209,
+        208,
+        208,
+        207,
+        206,
+        205,
+        204,
+        203,
+        202,
+        200,
+        199,
+        198
+};
 
 uint8_t ui8_sin_table[SIN_TABLE_LEN] = { 3, 6, 9, 12, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 54, 57, 60,
         63, 66, 68, 71, 73, 76, 78, 81, 83, 86, 88, 90, 92, 95, 97, 99, 101, 102, 104, 106, 108, 109, 111, 113, 114,
@@ -62,6 +309,7 @@ volatile uint8_t ui8_controller_adc_battery_current = 0;
 volatile uint8_t ui8_controller_adc_battery_current_target = 0;
 volatile uint8_t ui8_g_duty_cycle = 0;
 volatile uint8_t ui8_fw_angle = 0;
+volatile uint8_t ui8_fw_angle_max;
 volatile uint8_t ui8_controller_duty_cycle_target = 0;
 volatile uint8_t ui8_g_foc_angle = 0;
 static uint8_t ui8_counter_duty_cycle_ramp_up = 0;
@@ -93,7 +341,7 @@ void calc_foc_angle(void);
 uint8_t asin_table(uint8_t ui8_inverted_angle_x128);
 
 void motor_controller(void) {
-    ui16_motor_speed_erps = ((uint16_t) DOUBLE_PWM_CYCLES_SECOND) / (ui16_PWM_cycles_counter_total - 3);
+    ui16_motor_speed_erps = ((uint16_t) DOUBLE_PWM_CYCLES_SECOND) / (ui16_PWM_cycles_counter_total);
     read_battery_voltage();
     calc_foc_angle();
 }
@@ -116,20 +364,29 @@ extern volatile uint8_t ui8_main_time;
 // TIM1 is center aligned and every cycle counts up from 0 to 400 and then down from 400 to 0 (25+25us = 50us total time)
 // The interrupt fires two times every cycle (when reaches 200 up and down)
 // Both interrupts are used to update rotor position counters (max 25us rotor position offset error)
-// Up interrupt is also used for:
+// Up interrupt is used for:
 //  - read and filter battery current
 //  - start ADC scan conversion
-//  - PAS sensor reading and cadence computation
-//  - wheel speed sensor reading and wheel speed computation
-// Down interrupt is also used for:
-//  - compute rotor position
+//  - PAS sensor read and cadence computation
+//  - Wheel speed sensor read and wheel speed computation
+// Down interrupt is used for:
+//  - interpolate rotor position
 //  - check brake (coaster brake and brake input signal)
-//  - compute and apply duty cycle to TIM1
+//  - calculate and apply duty cycle to TIM1
 
 void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 {
     // TIM1->CR1 & 0x10 contains counter direction (0=up, 1=down)
-    uint8_t ui8_pwm_down = TIM1->CR1 & 0x10;
+    uint8_t ui8_pwm_down;
+    if (TIM1->CR1 & 0x10) {
+        // trigger ADC conversion (scan conversion, buffered)
+        // ADC battery current conversion will start after 3 (ADC prescaler) * 14 (ADC clocks/conversion) * 5 (Channel) = 210 CPU Cycles
+        // in the exact middle of PWM cycle
+        ADC1->CSR = 0x07;               // clear EOC flag and ADC scan up to channel 7
+        ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
+        ui8_pwm_down = 1;
+    } else
+        ui8_pwm_down = 0;
 
     /****************************************************************************/
 
@@ -141,24 +398,23 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     uint8_t ui8_hall_sensors_state;
 
     // read hall sensors signal pins and mask other pins
-    // (Old: hall sensors sequence with motor forward rotation: 4, 6, 2, 3, 1, 5 A:bit0, B:bit1, C:bit2)
-    // hall sensors sequence with motor forward rotation: C, CB, B, BA, A, AC, C
+    // hall sensors sequence with motor forward rotation: C, CB, B, BA, A, AC, ..
     // ui8_hall_sensors_state:
     //      bit 5 0x20 Hall sensor A
     //      bit 4 0x10 Hall sensor C
     //      bit 2 0x04 Hall sensor B
     // ui8_hall_sensors_state sequence with motor forward rotation: 0x10, 0x14, 0x04, 0x24, 0x20, 0x30
     //
-    // ui16_PWM_cycles_counter and ui16_PWM_cycles_counter_6 are initialized with value 3:
-    // read PWMCalculations.xlsx in the repositoy
-
+    // Check PWMCalculations.xlsx in the repositoy about ui16_PWM_cycles_counter and
+    // ui16_PWM_cycles_counter_6 initialization values.
 
     ui8_hall_sensors_state = (HALL_SENSOR_A__PORT->IDR & HALL_SENSOR_A__PIN)
             | (HALL_SENSOR_B__PORT->IDR & HALL_SENSOR_B__PIN)
             | ((HALL_SENSOR_C__PORT->IDR & HALL_SENSOR_C__PIN) >> 1);
 
-    // make sure we run next code only when there is a change on the hall sensors signal
+    // run next code only when the hall sensors signal changes
     if (ui8_hall_sensors_state != ui8_hall_sensors_state_last) {
+        // check first states with heavier computation
         if (ui8_hall_sensors_state == 0x20) {
             // check half ERPS flag and motor rotational direction
             if (ui8_pwm_counter_valid_a && (ui8_hall_sensors_state_last == 0x24)) {
@@ -172,7 +428,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                     ui8_g_foc_angle = 0;
                 }
 
-                ui16_PWM_cycles_counter_a = 3;
+                ui16_PWM_cycles_counter_a = 0;
             }
             ui8_pwm_counter_valid_a = 1;
             ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_210;
@@ -192,7 +448,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                     ui8_g_foc_angle = 0;
                 }
 
-                ui16_PWM_cycles_counter_b = 3;
+                ui16_PWM_cycles_counter_b = 0;
             }
             ui8_pwm_counter_valid_b = 1;
             ui8_motor_rotor_absolute_angle = (uint8_t) MOTOR_ROTOR_ANGLE_30;
@@ -218,7 +474,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
             }
         }
 
-        ui16_PWM_cycles_counter_6 = 3;
+        ui16_PWM_cycles_counter_6 = 2;
 
         // update last hall sensor state
         ui8_hall_sensors_state_last = ui8_hall_sensors_state;
@@ -233,9 +489,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         ui16_PWM_cycles_counter_6++;
     } else {
         // motor is stopped or near zero speed
-        ui16_PWM_cycles_counter_a = 3;
-        ui16_PWM_cycles_counter_b = 3;
-        ui16_PWM_cycles_counter_6 = 3;
+        ui16_PWM_cycles_counter_a = 0;
+        ui16_PWM_cycles_counter_b = 0;
+        ui16_PWM_cycles_counter_6 = 2;
         ui8_pwm_counter_valid_a = 0;
         ui8_pwm_counter_valid_b = 0;
         ui16_PWM_cycles_counter_total = 0xffff;
@@ -255,7 +511,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     /****************************************************************************/
 
-        // - calc interpolatioangle and sinewave table index
+        // - calculate interpolation angle and sine wave table index
 #define DO_INTERPOLATION 1 // may be useful to disable interpolation when debugging
 #if DO_INTERPOLATION == 1
     // calculate the interpolation angle (and it doesn't work when motor starts and at very low speeds)
@@ -293,7 +549,7 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     /****************************************************************************/
 
     // PWM duty_cycle controller:
-    // - limit battery undervoltage
+    // - limit battery undervolt
     // - limit battery max current
     // - limit motor max phase current
     // - limit motor max ERPS
@@ -303,8 +559,9 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     if ((ui8_g_duty_cycle > ui8_controller_duty_cycle_target)
             || (ui8_adc_battery_current_filtered > ui8_controller_adc_battery_current_target)
             || (ui8_adc_motor_phase_current > ADC_10_BIT_MOTOR_PHASE_CURRENT_MAX)
-                || (ui16_PWM_cycles_counter_total < (DOUBLE_PWM_CYCLES_SECOND / MOTOR_OVER_SPEED_ERPS))
+            || (ui16_PWM_cycles_counter_total < (DOUBLE_PWM_CYCLES_SECOND / MOTOR_OVER_SPEED_ERPS))
             || (UI8_ADC_BATTERY_VOLTAGE < ui8_adc_battery_voltage_cut_off)
+            || (ui8_fw_angle > ui8_fw_angle_max)
             || (ui8_brake_state)) {
         // reset duty cycle ramp up counter (filter)
         ui8_counter_duty_cycle_ramp_up = 0;
@@ -331,14 +588,17 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
                 ui8_g_duty_cycle++;
             }
         }
-        } else if ((ui16_PWM_cycles_counter_total <= (DOUBLE_PWM_CYCLES_SECOND / MOTOR_ERPS_FIELD_WEAKEANING_MIN))
-            && (ui8_g_duty_cycle == PWM_DUTY_CYCLE_MAX)
+        } else if ((ui8_g_duty_cycle == PWM_DUTY_CYCLE_MAX)
+                && (ui8_fw_angle_max > 0)
             && (ui8_adc_battery_current_filtered < ui8_controller_adc_battery_current_target)) {
+            // reset duty cycle ramp down counter (filter)
+            ui8_counter_duty_cycle_ramp_down = 0;
+
         if (++ui8_counter_duty_cycle_ramp_up > ui8_controller_duty_cycle_ramp_up_inverse_step) {
            ui8_counter_duty_cycle_ramp_up = 0;
 
            // increment field weakening angle
-           if (ui8_fw_angle < FIELD_WEAKEANING_ANGLE_MAX)
+               if (ui8_fw_angle < ui8_fw_angle_max)
                ui8_fw_angle++;
         }
     } else {
@@ -355,39 +615,42 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
 
     // scale and apply PWM duty_cycle for the 3 phases
     // phase A is advanced 240 degrees over phase B
+        // Max of SVM table is 202 and ui8_tmp goes from 0 to 100 (101*254/256) and
+        // ui8_phase_x_voltage goes from 0 (MIDDLE_PWM_COUNTER - ui8_temp) to 200 (MIDDLE_PWM_COUNTER + ui8_temp)
+
     ui8_temp = ui8_svm_table[(uint8_t) (ui8_svm_table_index + 171)]; /* +240� */
-    if (ui8_temp > MIDDLE_PWM_DUTY_CYCLE_MAX) {
-        ui16_value = (uint16_t)((uint8_t)(ui8_temp - MIDDLE_PWM_DUTY_CYCLE_MAX) * (uint8_t)ui8_g_duty_cycle);
+        if (ui8_temp > MIDDLE_SVM_TABLE) {
+            ui16_value = (uint16_t)((uint8_t)(ui8_temp - MIDDLE_SVM_TABLE) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_a_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX + ui8_temp;
+            ui8_phase_a_voltage = MIDDLE_PWM_COUNTER + ui8_temp;
     } else {
-        ui16_value = (uint16_t)((uint8_t)(MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
+            ui16_value = (uint16_t)((uint8_t)(MIDDLE_SVM_TABLE - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_a_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp;
+            ui8_phase_a_voltage = MIDDLE_PWM_COUNTER - ui8_temp;
     }
 
     // phase B as reference phase
     ui8_temp = ui8_svm_table[ui8_svm_table_index];
-    if (ui8_temp > MIDDLE_PWM_DUTY_CYCLE_MAX) {
-        ui16_value = (uint16_t) ((uint8_t)(ui8_temp - MIDDLE_PWM_DUTY_CYCLE_MAX) * (uint8_t)ui8_g_duty_cycle);
+        if (ui8_temp > MIDDLE_SVM_TABLE) {
+            ui16_value = (uint16_t) ((uint8_t)(ui8_temp - MIDDLE_SVM_TABLE) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_b_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX + ui8_temp;
+            ui8_phase_b_voltage = MIDDLE_PWM_COUNTER + ui8_temp;
     } else {
-        ui16_value = (uint16_t) ((uint8_t)(MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
+            ui16_value = (uint16_t) ((uint8_t)(MIDDLE_SVM_TABLE - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_b_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp;
+            ui8_phase_b_voltage = MIDDLE_PWM_COUNTER - ui8_temp;
     }
 
     // phase C is advanced 120 degrees over phase B
     ui8_temp = ui8_svm_table[(uint8_t) (ui8_svm_table_index + 85 /* 120º */)];
-    if (ui8_temp > MIDDLE_PWM_DUTY_CYCLE_MAX) {
-        ui16_value = (uint16_t) ((uint8_t)(ui8_temp - MIDDLE_PWM_DUTY_CYCLE_MAX) * (uint8_t)ui8_g_duty_cycle);
+        if (ui8_temp > MIDDLE_SVM_TABLE) {
+            ui16_value = (uint16_t) ((uint8_t)(ui8_temp - MIDDLE_SVM_TABLE) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_c_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX + ui8_temp;
+            ui8_phase_c_voltage = MIDDLE_PWM_COUNTER + ui8_temp;
     } else {
-        ui16_value = (uint16_t) ((uint8_t)(MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
+            ui16_value = (uint16_t) ((uint8_t)(MIDDLE_SVM_TABLE - ui8_temp) * (uint8_t)ui8_g_duty_cycle);
         ui8_temp = (uint8_t) (ui16_value >> 8);
-        ui8_phase_c_voltage = MIDDLE_PWM_DUTY_CYCLE_MAX - ui8_temp;
+            ui8_phase_c_voltage = MIDDLE_PWM_COUNTER - ui8_temp;
     }
 
     // set final duty_cycle value
@@ -416,6 +679,23 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
     } else {
         /****************************************************************************/
 
+        // Calculate Field Weakening max Angle based on current motor speed
+        // Field weakening max angle is 0 when cadence is below 48rpm
+        // Field weakening max angle is 6 when cadence is above 105rmp
+        // between 48 and 105rpm  goes from 1 to 5
+        #define FW_COUNTER_MIN  65U
+        #define FW_DIVISOR      16U
+        #define FW_COUNTER_MAX (FW_COUNTER_MIN + (FW_DIVISOR*5))
+
+        if (ui16_PWM_cycles_counter_total >= FW_COUNTER_MAX)
+            ui8_fw_angle_max = 0;
+        else if ((uint8_t)ui16_PWM_cycles_counter_total <= FW_COUNTER_MIN)
+            ui8_fw_angle_max = 6;
+        else
+            ui8_fw_angle_max = 5 - ((uint8_t)((uint8_t)ui16_PWM_cycles_counter_total - FW_COUNTER_MIN) / (uint8_t)FW_DIVISOR);
+
+
+        /****************************************************************************/
         /*
         // Read battery current
         // Left alignment: Read MSB first then read LSB !
@@ -467,12 +747,6 @@ void TIM1_CAP_COM_IRQHandler(void) __interrupt(TIM1_CAP_COM_IRQHANDLER)
         #endif
 
     /****************************************************************************/
-
-        // trigger ADC conversion (scan conversion, buffered)
-        ADC1->CSR = 0x07;               // clear EOC flag and ADC scan up to channel 7
-        ADC1->CR1 |= ADC1_CR1_ADON;     // start ADC1 conversion
-
-        /****************************************************************************/
 
     /*
      * - New pedal start/stop detection Algorithm (by MSpider65) -

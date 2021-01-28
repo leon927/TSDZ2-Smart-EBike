@@ -92,7 +92,7 @@ int main (void) {
 		// because of continue, the first if block code will have higher priority over the other
     ui16_TIM3_counter = TIM3_GetCounter();
 	if ((ui16_TIM3_counter - ui16_motor_controller_counter) > 4) {
-	// run every 4ms
+        // run every 4ms. Max measured motor_controller() duration is 0,15ms
 
       #ifdef MAIN_TIME_DEBUG
         // incremented every 50us by PWM interrupt function
@@ -118,7 +118,7 @@ int main (void) {
         ui8_main_time = 0;
       #endif
 
-	  // run every 25ms. Could also run faster. Max duration is 4ms. (tested on 18/7/2020)
+      // run every 25ms. Max measured ebike_app_controller() duration is 3,1 ms.
       ui16_ebike_app_controller_counter = ui16_TIM3_counter;
       ebike_app_controller();
 

@@ -487,7 +487,7 @@ static void ebike_control_motor(void) {
 }
 
 static void apply_power_assist() {
-    uint8_t ui8_power_assist_multiplier_x10 = ui8_riding_mode_parameter;
+    uint8_t ui8_power_assist_multiplier_x50 = ui8_riding_mode_parameter;
 
     // check for assist without pedal rotation threshold when there is no pedal rotation and standing still
     if (ui8_assist_without_pedal_rotation_threshold && !ui8_pedal_cadence_RPM && !ui16_wheel_speed_x10) {
@@ -497,19 +497,22 @@ static void apply_power_assist() {
     }
 
     // calculate power assist by multiplying human power with the power assist multiplier
-    uint32_t ui32_power_assist_x100 = (((uint16_t)(ui8_pedal_cadence_RPM * ui8_power_assist_multiplier_x10))
-            * (uint32_t)ui16_pedal_torque_x100) / 96U; // see note below
+    uint32_t ui32_power_assist_x100 = (((uint16_t)(ui8_pedal_cadence_RPM * ui8_power_assist_multiplier_x50))
+            * (uint32_t)ui16_pedal_torque_x100) / 480U; // see note below
 
     /*------------------------------------------------------------------------
 
      NOTE: regarding the human power calculation
 
-     (1) Formula: power = torque * rotations per second * 2 * pi
-     (2) Formula: power = torque * rotations per minute * 2 * pi / 60
-     (3) Formula: power = torque * rotations per minute * 0.1047
-     (4) Formula: power = torque * 100 * rotations per minute * 0.001047
-     (5) Formula: power = torque * 100 * rotations per minute / 955
-     (6) Formula: power * 10  =  torque * 100 * rotations per minute / 96
+     (1) Formula: pedal power = torque * rotations per second * 2 * pi
+     (2) Formula: pedal power = torque * rotations per minute * 2 * pi / 60
+     (3) Formula: pedal power = torque * rotations per minute * 0.1047
+     (4) Formula: pedal power = torque * 100 * rotations per minute * 0.001047
+     (5) Formula: pedal power = torque * 100 * rotations per minute / 955
+     (6) Formula: pedal power * 100  =  torque * 100 * rotations per minute * (100 / 955)
+     (7) Formula: assist power * 100  =  torque * 100 * rotations per minute * (100 / 955) * (ui8_power_assist_multiplier_x50 / 50)
+     (8) Formula: assist power * 100  =  torque * 100 * rotations per minute * (2 / 955) * ui8_power_assist_multiplier_x50
+     (9) Formula: assist power * 100  =  torque * 100 * rotations per minute * ui8_power_assist_multiplier_x50 / 480
 
      ------------------------------------------------------------------------*/
 
@@ -1034,7 +1037,7 @@ static void get_battery_current_filtered(void) {
     ui8_battery_current_filtered_x10 = (uint16_t)(ui8_adc_battery_current_filtered * (uint8_t)BATTERY_CURRENT_PER_10_BIT_ADC_STEP_X100) / 10;
 }
 
-#define TOFFSET_CYCLES 50
+#define TOFFSET_CYCLES 60
 static uint8_t toffset_cycle_counter = 0;
 
 static void get_pedal_torque(void) {

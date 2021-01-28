@@ -18,33 +18,32 @@
 
 // PWM related values
 // motor 
-#define PWM_CYCLES_SECOND                                       20000U // 50us (PWM period)
-#define PWM_CYCLES_COUNTER_MAX                                  4000U  // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 50 us = 4000 (3125 at 15.625KHz)
-#define DOUBLE_PWM_CYCLES_SECOND                                40000U // 25us (2 irq x PWM period)
+#define PWM_CYCLES_SECOND                                       19047U // 52us (PWM period)
+#define PWM_CYCLES_COUNTER_MAX                                  3800U  // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 50 us = 4000 (3125 at 15.625KHz)
+#define DOUBLE_PWM_CYCLES_SECOND                                38094 // 25us (2 irq x PWM period)
 // ramp up/down PWM cycles count
-#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT             204    // 160 -> 160 * 64 us for every duty cycle increment at 15.625KHz
-#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                 25     // 20 -> 20 * 64 us for every duty cycle increment at 15.625KHz
-#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT           51     // 40 -> 40 * 64 us for every duty cycle decrement at 15.625KHz
+#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT             195    // 160 -> 160 * 64 us for every duty cycle increment at 15.625KHz
+#define PWM_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN                 24     // 20 -> 20 * 64 us for every duty cycle increment at 15.625KHz
+#define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_DEFAULT           49     // 40 -> 40 * 64 us for every duty cycle decrement at 15.625KHz
 #define PWM_DUTY_CYCLE_RAMP_DOWN_INVERSE_STEP_MIN               10     // 8 -> 8 * 64 us for every duty cycle decrement at 15.625KHz
 #define MOTOR_OVER_SPEED_ERPS                                   650    // motor max speed | 30 points for the sinewave at max speed (less than PWM_CYCLES_SECOND/30)
-#define CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP                  102    // 80 at 15.625KHz
-#define WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP             255    // 200 at 15.625KHz
-#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT        102    // 80 at 15.625KHz
-#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN            51     // 40 at 15.625KHz
+#define CRUISE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP                  98    // 80 at 15.625KHz
+#define WALK_ASSIST_DUTY_CYCLE_RAMP_UP_INVERSE_STEP             244    // 200 at 15.625KHz
+#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_DEFAULT        98    // 80 at 15.625KHz
+#define THROTTLE_DUTY_CYCLE_RAMP_UP_INVERSE_STEP_MIN            49     // 40 at 15.625KHz
 // cadence
-#define CADENCE_SENSOR_CALC_COUNTER_MIN                         4480  // 3500 at 15.625KHz
-#define CADENCE_SENSOR_TICKS_COUNTER_MIN_AT_SPEED               358  // 280 at 15.625KHz
-#define CADENCE_TICKS_STARTUP                                   8000  // ui16_cadence_sensor_ticks value for startup. About 7-8 RPM (6250 at 15.625KHz)
-#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD  448   // software based Schmitt trigger to stop motor jitter when at resolution limits (350 at 15.625KHz)
+#define CADENCE_SENSOR_CALC_COUNTER_MIN                         4266  // 3500 at 15.625KHz
+#define CADENCE_SENSOR_TICKS_COUNTER_MIN_AT_SPEED               341  // 280 at 15.625KHz
+#define CADENCE_TICKS_STARTUP                                   7618  // ui16_cadence_sensor_ticks value for startup. About 7-8 RPM (6250 at 15.625KHz)
+#define CADENCE_SENSOR_STANDARD_MODE_SCHMITT_TRIGGER_THRESHOLD  426   // software based Schmitt trigger to stop motor jitter when at resolution limits (350 at 15.625KHz)
 // Wheel speed sensor
-#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MAX                    173   // (135 at 15,625KHz) something like 200 m/h with a 6'' wheel
-#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN                    41943 // could be a bigger number but will make for a slow detection of stopped wheel speed
+#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MAX                    165   // (135 at 15,625KHz) something like 200 m/h with a 6'' wheel
+#define WHEEL_SPEED_SENSOR_TICKS_COUNTER_MIN                    39976 // could be a bigger number but will make for a slow detection of stopped wheel speed
 
 
 #define PWM_DUTY_CYCLE_MAX                                        254
-#define MIDDLE_PWM_DUTY_CYCLE_MAX                                 (PWM_DUTY_CYCLE_MAX / 2)
-#define MOTOR_ERPS_FIELD_WEAKEANING_MIN                           476  // field weakening is active only above 480 ERPS
-#define FIELD_WEAKEANING_ANGLE_MAX                                4    // max field weakening angle is 360/256*6 = 8.4 degrees
+#define MIDDLE_SVM_TABLE                                          106
+#define MIDDLE_PWM_COUNTER                                        105
 
 /*---------------------------------------------------------
   NOTE: regarding duty cycle (PWM) ramping
