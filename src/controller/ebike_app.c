@@ -1519,13 +1519,54 @@ static void uart_receive_package(void) {
     }
 }
 
+#ifdef TIM1_IRQTIME_DEBUG
+extern volatile uint16_t ui16_cnt_start;
+extern volatile uint16_t ui16_cnt_mid;
+extern volatile uint16_t ui16_cnt_end;
+static uint16_t ui16_max_irq_mid_time = 0;
+static uint16_t ui16_max_irq_end_time = 0;
+#endif
+
 static void uart_send_package(void) {
     uint8_t ui8_i;
+    uint16_t ui16_temp;
+
     // This shouldn't be happening. It means the previous send operation is not ended
     if (ui8_tx_counter <= UART_NUMBER_DATA_BYTES_TO_SEND)
         return;
 
-    uint16_t ui16_temp;
+#ifdef TIM1_IRQTIME_DEBUG
+    uint16_t ui16_tim1_mid_time,ui16_tim1_end_time;
+    ui16_temp = ui16_cnt_start;
+    ui16_tim1_mid_time = ui16_cnt_mid;
+    ui16_tim1_end_time = ui16_cnt_end;
+    // 1: down count - 0: up count
+    if (ui16_temp & 0x1000) {
+        ui16_temp &= 0x0fff;
+        if (ui16_tim1_mid_time & 0x1000)
+            ui16_tim1_mid_time = ui16_temp - (ui16_tim1_mid_time & 0x0fff);
+        else
+            ui16_tim1_mid_time = ui16_temp + ui16_tim1_mid_time;
+        if (ui16_tim1_end_time & 0x1000)
+            ui16_tim1_end_time = ui16_temp - (ui16_tim1_end_time & 0x0fff);
+        else
+            ui16_tim1_end_time = ui16_temp + ui16_tim1_end_time;
+    } else {
+        if (ui16_tim1_mid_time & 0x1000)
+            ui16_tim1_mid_time = (511 - ui16_temp) + (511 - (ui16_tim1_mid_time & 0x0fff));
+        else
+            ui16_tim1_mid_time = ui16_tim1_mid_time - ui16_temp;
+        if (ui16_tim1_end_time & 0x1000)
+            ui16_tim1_end_time = (511 - ui16_temp) + (511 - (ui16_tim1_end_time & 0x0fff));
+        else
+            ui16_tim1_end_time = ui16_tim1_end_time - ui16_temp;
+    }
+    if (ui16_tim1_mid_time > ui16_max_irq_mid_time)
+        ui16_max_irq_mid_time = ui16_tim1_mid_time;
+    if (ui16_tim1_end_time > ui16_max_irq_end_time)
+        ui16_max_irq_end_time = ui16_tim1_end_time;
+#endif
+
 
     // start up byte
     ui8_tx_buffer[0] = 0x43;
@@ -1563,8 +1604,13 @@ static void uart_send_package(void) {
     }
 
     // ADC torque sensor
-    ui8_tx_buffer[9] = (uint8_t) (ui16_adc_pedal_torque & 0xff);
-    ui8_tx_buffer[10] = (uint8_t) (ui16_adc_pedal_torque >> 8);
+#ifdef TIM1_IRQTIME_DEBUG
+    ui16_temp = ui16_max_irq_mid_time;
+#else
+    ui16_temp = ui16_adc_pedal_torque;
+#endif
+    ui8_tx_buffer[9] = (uint8_t) (ui16_temp & 0xff);
+    ui8_tx_buffer[10] = (uint8_t) (ui16_temp >> 8);
 
     // pedal cadence
     ui8_tx_buffer[11] = ui8_pedal_cadence_RPM;
@@ -1602,7 +1648,11 @@ static void uart_send_package(void) {
     ui8_tx_buffer[24] = (uint8_t) (ui16_temp >> 8);
 
     // Free for future use
+#ifdef TIM1_IRQTIME_DEBUG
+    ui16_temp = ui16_max_irq_end_time;
+#else
     ui16_temp = 0;
+#endif
     ui8_tx_buffer[25] = (uint8_t) (ui16_temp & 0xff);
     ui8_tx_buffer[26] = (uint8_t) (ui16_temp >> 8);
 

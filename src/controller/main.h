@@ -11,8 +11,9 @@
 
 
 //#define DEBUG_UART
+#define TIM1_IRQTIME_DEBUG
 
-#define FW_VERSION 5
+#define FW_VERSION 6
 
 // motor 
 #define PWM_CYCLES_COUNTER_MAX                                    3125    // 5 erps minimum speed -> 1/5 = 200 ms; 200 ms / 64 us = 3125

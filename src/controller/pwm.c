@@ -15,18 +15,25 @@
 #include "pins.h"
 
 void pwm_init_bipolar_4q(void) {
-
-    /****************************************************************************/
-
     // verify if PWM N channels are active on option bytes, if not, enable
+    volatile uint32_t ui32_delay_counter = 0;
+    // deinitialize EEPROM
+    FLASH_DeInit();
+    // time delay
+    for (ui32_delay_counter = 0; ui32_delay_counter < 160000; ++ui32_delay_counter) {
+    }
+    // select and set programming time mode
+    FLASH_SetProgrammingTime(FLASH_PROGRAMTIME_STANDARD); // standard programming (erase and write) time mode
+    // time delay
+    for (ui32_delay_counter = 0; ui32_delay_counter < 160000; ++ui32_delay_counter) {
+    }
+
     if (FLASH_ReadOptionByte(0x4803) != 0x20) {
         FLASH_Unlock(FLASH_MEMTYPE_DATA);
         FLASH_EraseOptionByte(0x4803);
         FLASH_ProgramOptionByte(0x4803, 0x20);
         FLASH_Lock(FLASH_MEMTYPE_DATA);
     }
-
-    /****************************************************************************/
 
     TIM1_TimeBaseInit(0, // TIM1_Prescaler = 0
             TIM1_COUNTERMODE_CENTERALIGNED1, (512 - 1),
