@@ -18,8 +18,6 @@
 #define eMTB_ASSIST_MODE                          4
 #define WALK_ASSIST_MODE                          5
 #define CRUISE_MODE                               6
-#define CADENCE_SENSOR_CALIBRATION_MODE           7
-
 
 // error codes
 #define NO_ERROR                                  0
@@ -29,7 +27,6 @@
 #define ERROR_THROTTLE_APPLIED_DURING_POWER_ON    4
 #define ERROR_NO_SPEED_SENSOR_DETECTED            5
 #define ERROR_LOW_CONTROLLER_VOLTAGE              6   // controller works with no less than 15 V so give error code if voltage is too low
-#define ERROR_CADENCE_SENSOR_CALIBRATION          7
 
 
 // walk assist
@@ -45,19 +42,11 @@
 #define TEMPERATURE_CONTROL                       1
 #define THROTTLE_CONTROL                          2
 
-
-// cadence sensor
-#define STANDARD_MODE                             0
-#define ADVANCED_MODE                             1
-#define CALIBRATION_MODE                          2
-
-
-int32_t map (int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
-int32_t map_inverse (int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
+int16_t map_ui16(int16_t x, int16_t in_min, int16_t in_max, int16_t out_min, int16_t out_max);
+uint8_t map_ui8(uint8_t x, uint8_t in_min, uint8_t in_max, uint8_t out_max, uint8_t out_min);
 uint8_t ui8_max (uint8_t value_a, uint8_t value_b);
 uint8_t ui8_min (uint8_t value_a, uint8_t value_b);
-uint32_t filter(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha);
-void ui8_limit_max (uint8_t *ui8_p_value, uint8_t ui8_max_value);
+uint16_t filter(uint16_t ui16_new_value, uint16_t ui16_old_value, uint8_t ui8_alpha);
 void crc16(uint8_t ui8_data, uint16_t* ui16_crc);
 
 

@@ -38,14 +38,8 @@ void pwm_init_bipolar_4q(void) {
 
     TIM1_TimeBaseInit(0, // TIM1_Prescaler = 0
             TIM1_COUNTERMODE_CENTERALIGNED1,
-#ifdef PWM_20K
             // clock = 16MHz; counter period = 800; PWM freq = 16MHz / 800 = 20kHz;
-            (400 - 1),
-#else
-            // clock = 16MHz; counter period = 888; PWM freq = 16MHz / 888 = 18kHz;
-            (444 - 1),
-#endif
-            //(BUT PWM center aligned mode needs twice the frequency)
+            400, // PWM center aligned mode: counts from 0 to 400 and then down from 400 to 0
             1);// will fire the TIM1_IT_UPDATE at every PWM period cycle
 
 //#define DISABLE_PWM_CHANNELS_1_3
@@ -87,18 +81,11 @@ void pwm_init_bipolar_4q(void) {
             TIM1_OCIDLESTATE_RESET,
             TIM1_OCNIDLESTATE_SET);
 
-    // OC4 is being used only to fire interrupt at a specific time (middle of DC link current pulses)
+    // OC4 is being used only to fire interrupt at a specific time (middle of both up/down TIM1 count)
     // OC4 is always syncronized with PWM
-    // Battery current ADC conversion starts 18 CPU cycles after IRQ fires
-    // ADC sampling time is 3 ADC clocks and ADC clock is 1/4 of CPU clock
-    // Start battery current ADC sampling 1 ADC clock before the middle of PWM cycle
     TIM1_OC4Init(TIM1_OCMODE_PWM1,
             TIM1_OUTPUTSTATE_DISABLE,
-#ifdef PWM_20K
-            ((400-1) - 18 - 4),
-#else
-            ((444-1) - 18 - 4),
-#endif
+            399,
             TIM1_OCPOLARITY_HIGH,
             TIM1_OCIDLESTATE_RESET);
 

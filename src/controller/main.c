@@ -85,7 +85,7 @@ int main (void) {
   pas_init();
   wheel_speed_sensor_init();
   hall_sensor_init();
-  pwm_init_bipolar_4q();  // init TIM1 at 15625Hz (64us)
+    pwm_init_bipolar_4q();  // init TIM1 at 20KHz (504us)
   enableInterrupts();
   
 	while (1) {

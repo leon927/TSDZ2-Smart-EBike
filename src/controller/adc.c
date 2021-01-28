@@ -17,9 +17,6 @@
 #include "common.h"
 
 
-volatile uint16_t ui16_adc_pedal_torque_offset = 100;
-
-
 void adc_init(void) {
   //init GPIO for the used ADC pins
     GPIO_Init(GPIOB, (GPIO_PIN_7 | GPIO_PIN_6 | GPIO_PIN_5 | GPIO_PIN_4), GPIO_MODE_IN_FL_NO_IT);
