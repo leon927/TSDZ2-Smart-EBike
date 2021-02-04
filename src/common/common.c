@@ -79,6 +79,22 @@ uint16_t filter(uint16_t ui16_new_value, uint16_t ui16_old_value, uint8_t ui8_al
   }
 }
 
+uint32_t filter32(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha)
+{
+  if (ui8_alpha < 101)
+  {
+    uint32_t ui32_filtered_value = (((100 - ui8_alpha) * ui32_new_value) + (ui8_alpha * ui32_old_value)) / 100;
+
+    if ((ui32_filtered_value == ui32_old_value) && (ui32_filtered_value < ui32_new_value)) { ++ui32_filtered_value; }
+
+    return ui32_filtered_value;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 
 
 

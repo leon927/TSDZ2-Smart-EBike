@@ -132,24 +132,6 @@ void uart_data_clock (void)
       // value from optional ADC channel
       p_motor_controller_data->ui8_adc_throttle = ui8_rx_buffer[7];
       
-      // throttle or temperature control
-      switch (p_configuration_variables->ui8_optional_ADC_function)
-      {
-        case THROTTLE_CONTROL:
-        
-          // throttle value with offset applied and mapped from 0 to 255
-          p_motor_controller_data->ui8_throttle = ui8_rx_buffer[8];
-        
-        break;
-        
-        case TEMPERATURE_CONTROL:
-        
-          // current limiting mapped from 0 to 255
-          p_motor_controller_data->ui8_temperature_current_limiting_value = ui8_rx_buffer[8];
-        
-        break;
-      }
-      
       // ADC pedal torque
       p_motor_controller_data->ui16_adc_pedal_torque_sensor = (((uint16_t) ui8_rx_buffer [10]) << 8) + ((uint16_t) ui8_rx_buffer [9]);
       
@@ -171,6 +153,25 @@ void uart_data_clock (void)
       // motor temperature
       p_motor_controller_data->ui8_motor_temperature = ui8_rx_buffer[17];
       
+      // throttle or temperature control
+      switch (p_configuration_variables->ui8_optional_ADC_function)
+      {
+        case THROTTLE_CONTROL:
+          // throttle value with offset applied and mapped from 0 to 255
+          p_motor_controller_data->ui8_throttle = ui8_rx_buffer[8];
+        break;
+
+        case TEMPERATURE_CONTROL:
+          // current limiting mapped from 0 to 255
+          //if(p_motor_controller_data->ui8_motor_temperature > p_configuration_variables->ui8_motor_temperature_min_value_to_limit) {
+            p_motor_controller_data->ui8_temperature_current_limiting_value = (uint8_t)255;
+          //}
+          //else {
+        //	p_motor_controller_data->ui8_temperature_current_limiting_value = 0;
+         // }
+        break;
+      }
+
       // wheel_speed_sensor_tick_counter
       p_motor_controller_data->ui32_wheel_speed_sensor_tick_counter = (((uint32_t) ui8_rx_buffer[20]) << 16) + (((uint32_t) ui8_rx_buffer[19]) << 8) + ((uint32_t) ui8_rx_buffer[18]);
 

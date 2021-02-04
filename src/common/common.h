@@ -54,6 +54,7 @@ uint8_t map_ui8(uint8_t x, uint8_t in_min, uint8_t in_max, uint8_t out_max, uint
 uint8_t ui8_max (uint8_t value_a, uint8_t value_b);
 uint8_t ui8_min (uint8_t value_a, uint8_t value_b);
 uint16_t filter(uint16_t ui16_new_value, uint16_t ui16_old_value, uint8_t ui8_alpha);
+uint32_t filter32(uint32_t ui32_new_value, uint32_t ui32_old_value, uint8_t ui8_alpha);
 void crc16(uint8_t ui8_data, uint16_t* ui16_crc);
 
 
