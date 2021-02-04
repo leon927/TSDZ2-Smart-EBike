@@ -77,6 +77,7 @@ volatile uint8_t ui8_adc_throttle = 0;
 static uint16_t ui16_motor_temperature_filtered_x10 = 0;
 static uint8_t ui8_motor_temperature_max_value_to_limit = 0;
 static uint8_t ui8_motor_temperature_min_value_to_limit = 0;
+static uint8_t ui8_temperature_current_limiting_value = 0;
 
 // eMTB assist
 #define eMTB_POWER_FUNCTION_ARRAY_SIZE      241
@@ -955,12 +956,19 @@ static void apply_temperature_limiting() {
     // min temperature value can not be equal or higher than max temperature value
     if (ui8_motor_temperature_min_value_to_limit >= ui8_motor_temperature_max_value_to_limit) {
         ui8_adc_battery_current_target = 0;
+        ui8_temperature_current_limiting_value = 0;
     } else {
         // adjust target current if motor over temperature limit
         ui8_adc_battery_current_target = map_ui16((uint16_t) ui16_motor_temperature_filtered_x10,
                 (uint16_t) ((uint8_t)ui8_motor_temperature_min_value_to_limit * (uint8_t)10U),
                 (uint16_t) ((uint8_t)ui8_motor_temperature_max_value_to_limit * (uint8_t)10U),
                 ui8_adc_battery_current_target,
+                0);
+        // get a value linear to the current limitation, just to show to user
+        ui8_temperature_current_limiting_value = map_ui16((uint16_t) ui16_motor_temperature_filtered_x10,
+                (uint16_t) ((uint8_t)ui8_motor_temperature_min_value_to_limit * (uint8_t)10U),
+                (uint16_t) ((uint8_t)ui8_motor_temperature_max_value_to_limit * (uint8_t)10U),
+                255,
                 0);
     }
 }
@@ -1625,7 +1633,7 @@ static void uart_send_package(void) {
     if (m_configuration_variables.ui8_optional_ADC_function == THROTTLE_CONTROL)
         ui8_tx_buffer[8] = ui8_adc_throttle;
     else
-        ui8_tx_buffer[8] = 0;
+        ui8_tx_buffer[8] = ui8_temperature_current_limiting_value; // current limiting mapped from 0 to 255
 
     // ADC torque sensor
 #ifdef PWM_TIME_DEBUG
